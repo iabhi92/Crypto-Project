@@ -27,8 +27,38 @@ def MT_Construct(pk_leaves):
  
     return tree
 
-def MT_MakePath(PK: list, KeyID: int):
-    return
+# Compute the authentication PATH for the leaf at position key_id.
+# Parameters
+# pk_leaves : full list of D one-time public keys
+# key_id : index of the leaf whose path is to be computed (0 <= key_id < D)
+
+# Returns
+# path : list of siblings from leaf up to and not including root + key_id [sibling_1, sibling_2, ..., sibling_d, key_id]
+#        where sibling_1 is the sibling closest to the leaf.
+def MT_MakePath(pk_leaves, key_id):
+    num_pk = len(pk_leaves)
+    assert 0 <= key_id < num_pk, "key_id out of range"
+ 
+    tree = MT_Construct(pk_leaves)
+ 
+    path = []
+    # Begin at indexed leaf position
+    i = key_id + num_pk
+ 
+    # Tweaked paper condition to i > 1 to correctly get siblings from root to leaf
+    while i > 1:
+        if i % 2 == 0:
+            # i is the left child, store its right sibling (i+1)
+            path.append(tree[i + 1])
+        else:
+            # i is a right child, stores its left sibling (i-1)
+            path.append(tree[i - 1])
+
+        # Tree property: Moves up a level
+        i = i // 2
+ 
+    path.append(key_id)
+    return path
 
 def MT_Verify(PATH, leaf_value):
     return
