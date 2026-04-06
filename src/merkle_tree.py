@@ -63,5 +63,12 @@ def MT_MakePath(pk_leaves, key_id):
 def MT_Verify(PATH, leaf_value):
     return
 
-def MT_Extract(PATH):
-    return
+# Returns the key_id stored as the last element of path.
+# Parameter
+# path : list of siblings from leaf up to and not including root + key_id [sibling_1, sibling_2, ..., sibling_d, key_id]
+#        where sibling_1 is the sibling closest to the leaf.
+
+# Return
+# key_id : index of the leaf corresponding to the path generated
+def MT_Extract(path):
+    return path[-1]
