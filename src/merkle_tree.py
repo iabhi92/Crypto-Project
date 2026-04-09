@@ -71,7 +71,7 @@ def MT_MakePath(pk_leaves, key_id):
  
     Returns
     root : the recomputed root hash.
-           Verification succeeds iff this equals the stored CPK.ROOT.
+           Verification succeeds if this equals the stored CPK.ROOT.
 """
 def MT_Verify(path, leaf_value):
     key_id = MT_Extract(path)
