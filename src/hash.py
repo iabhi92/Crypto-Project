@@ -6,23 +6,20 @@ FOUR_BYTE = 4
 # Prepends the tweak and all data fields, then SHA-256s the result.
 
 # Parameters
-# tweak : Integer that corresponds to a namespace for this particular hash call
+# tweak : Tuple of integers
 # data: Tuple of byte strings
 
 # Returns
 # 32-byte SHA-256 Output
-def hash_tweak(tweak, *data):
+def hash_lms(tweak: tuple, *data: bytes) -> bytes:
 
     h = hashlib.sha256()
  
-    if isinstance(tweak, tuple):
-        for t in tweak:
-            if isinstance(t, int):
-                h.update(t.to_bytes(FOUR_BYTE, BIG_ENDIAN))
-            else:
-                h.update(t)
-    else:
-        h.update(tweak.to_bytes(FOUR_BYTE, BIG_ENDIAN))
+    for t in tweak:
+        if isinstance(t, int):
+            h.update(t.to_bytes(FOUR_BYTE, BIG_ENDIAN))
+        else:
+            h.update(t)
  
     for d in data:
         h.update(d)
