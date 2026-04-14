@@ -2,6 +2,7 @@ from utils import CPK, CSK, PATH, randomBits, w
 
 from lamport import Gen, Verify, WINTER
 from merkle_tree import MT_Contruct, MT_Verify, MT_MakePath, MT_Extract
+from hash import hash_tweak
 
 class StatefulHash():
     csk: CSK = None
@@ -37,7 +38,7 @@ class StatefulHash():
     
 
     # This is stateful and it needs access to csk and the keyIDs
-    def StatefulSign(self, keyID: int, m) -> tuple[int, PATH, list[list]]:
+    def StatefulSign(self, keyID: int, m: bytes) -> tuple[int, PATH, list[list]]:
         if keyID in self.keyIDs:
             # keyID has already been used
             if self.keyIDs[keyID]:
@@ -49,9 +50,8 @@ class StatefulHash():
         # See the n variable in utils.py 
         r = randomBits()
 
-        # TODO: LMS or XMSS hash
-        # This also needs metadata, 1 and keyID
-        h = hash(r, m)
+        # Convert the random number to raw bytes
+        h = hash_lms((1, keyID), bytes(r), m)
 
         z = WINTER(h, self.csk[keyID])
 
@@ -65,13 +65,14 @@ class StatefulHash():
         return (r, path, z)
 
     # This is stateful and it needs access to cpk
-    def StatefulVerify(self, m, r: int, path: PATH, z) -> bool:
-        # TODO: LMS or XMSS hash
-        # This also needs metadata, 1 and keyID
-        h = hash(r, m)
-
+    def StatefulVerify(self, m: bytes, r: int, path: PATH, z) -> bool:
         # See page 12 to get keyID from the path
-        pk_prime = Verify(r, z, m, MT_Extract(path))
+        keyID = MT_Extract(path)
+
+        # Convert the random number to raw bytes
+        h = hash_lms((1, keyID), bytes(r), m)
+
+        pk_prime = Verify(r, z, m, keyID)
 
         if MT_Verify(path, pk_prime) == self.cpk.ROOT:
             return True
