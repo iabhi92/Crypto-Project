@@ -2,6 +2,7 @@ from utils import CPK, CSK, PATH, randomBits, w
 
 from lamport import Gen, Verify, WINTER
 from merkle_tree import MT_Contruct, MT_Verify, MT_MakePath, MT_Extract
+from hash import hash_lms
 
 class StatefulHash():
     csk: CSK = None
@@ -9,71 +10,71 @@ class StatefulHash():
     
     # This is a dict of the keyIDs where each can be true or false to mark if they are used or not
     # Example {1 : True, 2: False}
-    KeyIDs: dict[int, bool] = {}
+    keyIDs: dict[int, bool] = {}
 
-    def __init__(self, csk: CSK, cpk: CPK, KeyIDs: dict[int, bool]):
+    def __init__(self, cpk: CPK, csk: CSK, keyIDs: dict[int, bool]):
         self.csk = csk
         self.cpk = cpk
-        self.KeyIDs = KeyIDs
+        self.keyIDs = keyIDs
 
     # This is stateless so doesn't need access the the class variables
-    def StatefulGen(D: int) -> tuple[CPK, CSK]:
-        PK = []
-        SK = []
+    def StatefulGen(d: int) -> tuple[CPK, CSK]:
+        pk = []
+        sk = []
         
-        KeyID = 0
+        keyID = 0
 
-        while KeyID < D: 
-            PK[KeyID], SK[KeyID] = Gen(KeyID)
-            KeyID += 1
+        while keyID < d: 
+            pk[keyID], sk[keyID] = Gen(keyID)
+            keyID += 1
 
         cpk = CPK()
         csk = []
 
-        cpk.ROOT = MT_Contruct(PK[0:D])
-        csk = SK[0:D]
+        cpk.ROOT = MT_Contruct(pk[0:d])
+        csk = sk[0:d]
 
         return (cpk, csk)
     
 
-    # This is stateful and it needs access to csk and the KeyIDs
-    def StatefulSign(self, KeyID: int, M, csk: CSK) -> tuple[int, PATH, list[list]]:
-        if KeyID in self.KeyIDs:
-            # KeyID has already been used
-            if self.KeyIDs[KeyID]:
+    # This is stateful and it needs access to csk and the keyIDs
+    def StatefulSign(self, keyID: int, m: bytes) -> tuple[int, PATH, list[list]]:
+        if keyID in self.keyIDs:
+            # keyID has already been used
+            if self.keyIDs[keyID]:
                 return None
             else:
-                self.KeyIDs[KeyID] = True
+                self.keyIDs[keyID] = True
 
         # This will generate n random bits
         # See the n variable in utils.py 
-        R = randomBits()
+        r = randomBits()
 
-        # TODO: LMS or XMSS hash
-        # This also needs metadata, 1 and KeyID
-        h = hash(R, M)
+        # Convert the random number to raw bytes
+        h = hash_lms((1, keyID), bytes(r), m)
 
-        Z = WINTER(h, csk[KeyID])
+        z = WINTER(h, self.csk[keyID])
 
         # Page 8 of paper to compute pk from sk
-        PK = []
-        for index in range(0, len(self.KeyIDs)):
-            PK.append(csk[index][pow(2, w) - 1])
+        pk = []
+        for index in range(0, len(self.keyIDs)):
+            pk.append(self.csk[index][pow(2, w) - 1])
 
-        path = MT_MakePath(PK, KeyID)
+        path = MT_MakePath(pk, keyID)
         
-        return (R, path, Z)
+        return (r, path, z)
 
     # This is stateful and it needs access to cpk
-    def StatefulVerify(self, M, R: int, path: PATH, Z) -> bool:
-        # TODO: LMS or XMSS hash
-        # This also needs metadata, 1 and KeyID
-        h = hash(R, M)
+    def StatefulVerify(self, m: bytes, r: int, path: PATH, z) -> bool:
+        # See page 12 to get keyID from the path
+        keyID = MT_Extract(path)
 
-        # See page 12 to get KeyID from the path
-        PK_Prime = Verify(R, Z, M, MT_Extract(path))
+        # Convert the random number to raw bytes
+        h = hash_lms((1, keyID), bytes(r), m)
 
-        if MT_Verify(path, PK_Prime) == self.cpk.ROOT:
+        pk_prime = Verify(r, z, m, keyID)
+
+        if MT_Verify(path, pk_prime) == self.cpk.ROOT:
             return True
         else:
             return False
