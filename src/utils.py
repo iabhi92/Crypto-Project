@@ -33,5 +33,5 @@ class CRV:
     SK: any
 
 
-def randomBits(bits: int = 256):
+def randomBits(bits: int = n):
     return secrets.randbits(bits)

@@ -1,7 +1,7 @@
-from utils import (CPK, CSK, randomBits, w)
+from utils import CPK, CSK, randomBits, w
 
 from lamport import Gen, Verify, WINTER
-from merkle_tree import MT_Contruct, MT_Verify, MT_MakePath
+from merkle_tree import MT_Contruct, MT_Verify, MT_MakePath, MT_Extract
 
 class StatefulHash():
     csk: CSK = None
@@ -23,7 +23,7 @@ class StatefulHash():
         
         KeyID = 0
 
-        while KeyID <= D - 1: 
+        while KeyID < D: 
             PK[KeyID], SK[KeyID] = Gen(KeyID)
             KeyID += 1
 
@@ -39,21 +39,25 @@ class StatefulHash():
     # This is stateful and it needs access to csk and the KeyIDs
     def StatefulSign(self, KeyID: int, M, csk: CSK):
         if KeyID in self.KeyIDs:
+            # KeyID has already been used
             if self.KeyIDs[KeyID]:
-                raise Exception(f"{KeyID} has already been used")
+                return None
             else:
                 self.KeyIDs[KeyID] = True
 
+        # This will generate n random bits
+        # See the n variable in utils.py 
         R = randomBits()
 
-        # LMS or XMSS hash
+        # TODO: LMS or XMSS hash
+        # This also needs metadata, 1 and KeyID
         h = hash(R, M)
 
-        Z = WINTER(h, csk(KeyID))
+        Z = WINTER(h, csk[KeyID])
 
         # Page 8 of paper to compute pk from sk
         PK = []
-        for index in range(0, len(csk)):
+        for index in range(0, len(self.KeyIDs)):
             PK.append(csk[index][pow(2, w) - 1])
 
         PATH = MT_MakePath(PK, KeyID)
@@ -61,15 +65,15 @@ class StatefulHash():
         return (R, PATH, Z)
 
     # This is stateful and it needs access to cpk
-    def StatefulVerify(self, M, R, PATH, Z) -> bool:
+    def StatefulVerify(self, M, R: int, PATH, Z) -> bool:
+        # TODO: LMS or XMSS hash
+        # This also needs metadata, 1 and KeyID
         h = hash(R, M)
 
-        # Not sure where KeyID comes from
-        PK_Prime = Verify(R, Z, M, KeyID)
+        # See page 12 to get KeyID from the path
+        PK_Prime = Verify(R, Z, M, MT_Extract(PATH))
 
-        # Not sure where cpk comes from
         if MT_Verify(PATH, PK_Prime) == self.cpk.ROOT:
             return True
         else:
             return False
-
