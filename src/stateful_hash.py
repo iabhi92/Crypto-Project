@@ -1,4 +1,4 @@
-from utils import CPK, CSK, randomBits, w
+from utils import CPK, CSK, PATH, randomBits, w
 
 from lamport import Gen, Verify, WINTER
 from merkle_tree import MT_Contruct, MT_Verify, MT_MakePath, MT_Extract
@@ -37,7 +37,7 @@ class StatefulHash():
     
 
     # This is stateful and it needs access to csk and the KeyIDs
-    def StatefulSign(self, KeyID: int, M, csk: CSK):
+    def StatefulSign(self, KeyID: int, M, csk: CSK) -> tuple[int, PATH, list[list]]:
         if KeyID in self.KeyIDs:
             # KeyID has already been used
             if self.KeyIDs[KeyID]:
@@ -60,20 +60,20 @@ class StatefulHash():
         for index in range(0, len(self.KeyIDs)):
             PK.append(csk[index][pow(2, w) - 1])
 
-        PATH = MT_MakePath(PK, KeyID)
+        path = MT_MakePath(PK, KeyID)
         
-        return (R, PATH, Z)
+        return (R, path, Z)
 
     # This is stateful and it needs access to cpk
-    def StatefulVerify(self, M, R: int, PATH, Z) -> bool:
+    def StatefulVerify(self, M, R: int, path: PATH, Z) -> bool:
         # TODO: LMS or XMSS hash
         # This also needs metadata, 1 and KeyID
         h = hash(R, M)
 
         # See page 12 to get KeyID from the path
-        PK_Prime = Verify(R, Z, M, MT_Extract(PATH))
+        PK_Prime = Verify(R, Z, M, MT_Extract(path))
 
-        if MT_Verify(PATH, PK_Prime) == self.cpk.ROOT:
+        if MT_Verify(path, PK_Prime) == self.cpk.ROOT:
             return True
         else:
             return False
