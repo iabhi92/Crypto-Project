@@ -2,7 +2,7 @@ from utils import CPK, CSK, PATH, randomBits, w
 
 from lamport import Gen, Verify, WINTER
 from merkle_tree import MT_Contruct, MT_Verify, MT_MakePath, MT_Extract
-from hash import hash_tweak
+from hash import hash_lms
 
 class StatefulHash():
     csk: CSK = None
