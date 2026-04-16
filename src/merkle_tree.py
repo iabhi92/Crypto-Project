@@ -1,7 +1,7 @@
 from hash import hash_lms
 MERKLE_TWEAK = 3
 
-def MT_Construct(pk_leaves):
+def MT_Construct(pk_leaves: list[bytes]):
     num_pk = len(pk_leaves)
     assert num_pk >= 1 and (num_pk & (num_pk - 1)) == 0, "D must be a power of two"
 
@@ -18,7 +18,7 @@ def MT_Construct(pk_leaves):
 
     return tree
 
-def MT_MakePath(pk_leaves, key_id):
+def MT_MakePath(pk_leaves: list[bytes], key_id: int):
     num_pk = len(pk_leaves)
     assert 0 <= key_id < num_pk, "key_id out of range"
 

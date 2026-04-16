@@ -26,8 +26,8 @@ CSK: TypeAlias = list[list[int]]
 Contains a path from a PK to the root of the Merkle tree, where each node is a KeyID
 See page 11 and 12 https://cic.iacr.org/p/2/2/24/pdf
 """
-PATH: TypeAlias = list[int]
-
+PATH: TypeAlias = list[bytes | int]
+PK: TypeAlias = bytes
 
 class CPK:
     ROOT: any
