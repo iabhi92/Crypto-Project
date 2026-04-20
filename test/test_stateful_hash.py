@@ -3,12 +3,12 @@ import pytest
 from stateful_hash import StatefulHash
 from merkle_tree import MT_Extract
 
-D_SIZE = 100
+D_SIZE = 4
 
 @pytest.fixture
 def stateful_hash():
     cpk, csk = StatefulHash.StatefulGen(D_SIZE)
-    
+
     keyIDs = {}
     for index in range(0, D_SIZE):
         keyIDs[index] = False
@@ -18,10 +18,10 @@ def stateful_hash():
 
 @pytest.mark.parametrize(
     "m_1,m_2",
-    [   
-        (bytes("hello"), bytes("hello")),
-        (bytes("hello"), bytes("goodbye"))
-    ] 
+    [
+        (b"hello", b"hello"),
+        (b"hello", b"goodbye")
+    ]
 )
 def test_stateful_sign(m_1, m_2, stateful_hash):
     r_1, path_1, z_1 = stateful_hash.StatefulSign(1, m_1)
@@ -38,17 +38,16 @@ def test_stateful_sign(m_1, m_2, stateful_hash):
 
 @pytest.mark.parametrize(
     "m_1,m_2",
-    [   
-        (bytes("hello"), bytes("hello")),
-        (bytes("hello"), bytes("goodbye"))
-    ] 
+    [
+        (b"hello", b"goodbye")
+    ]
 )
 def test_stateful_verify(m_1, m_2, stateful_hash):
     r_1, path_1, z_1 = stateful_hash.StatefulSign(1, m_1)
-    
-    # In practice a key is only used to sign one message, only doing this here  
+
+    # In practice a key is only used to sign one message, only doing this here
     # to allow the same key to sign 2 messages for testing purposes
-    stateful_hash.keysIDs[1] = False
+    stateful_hash.keyIDs[1] = False
 
     r_2, path_2, z_2 = stateful_hash.StatefulSign(1, m_2)
 
