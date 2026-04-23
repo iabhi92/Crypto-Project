@@ -59,6 +59,8 @@ def AggregatorSign(m, crv: list[CRV], keyID: int) -> tuple[PATH, int, int]:
     z_ts = [0] * len(c)
 
     for t in c:
+        # This needs to get the result of shardsign1 when called by that trustee
+        # So this needs to communicate with the program running on that trustee
         r_t, chk_t = ShardSign1(t, keyID, m)
 
         r_ts.append(r_t)
@@ -72,6 +74,8 @@ def AggregatorSign(m, crv: list[CRV], keyID: int) -> tuple[PATH, int, int]:
 
     i = 0
     for t in c:
+        # This needs to get the result of shardsign2 when called by that trustee
+        # So this needs to communicate with the program running on that trustee
         path_t, z_t = ShardSign2(t, r, chk[i])
         i += 1
 
