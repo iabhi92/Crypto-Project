@@ -1,6 +1,6 @@
-from utils import CPK, CSK, PATH, randomBits
+from utils import CPK, CSK, PATH, randomBits, N_BYTES, A, C, CHAIN_LEN
 
-from lamport import Gen, Verify, WINTER, N_BYTES, A, C, CHAIN_LEN
+from lamport import Gen, Verify, WINTER
 from merkle_tree import MT_Construct, MT_Verify, MT_MakePath, MT_Extract
 from hash import hash_lms
 
