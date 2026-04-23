@@ -2,23 +2,18 @@ import os
 import math
 
 from hash import hash_lms
-from utils import n, w
-
-N_BYTES = n // 8
-A = n // w
-C = math.ceil(math.log2(A * (2**w - 1)) / w)
-CHAIN_LEN = 2**w
+from utils import N_BYTES, W, A, C, CHAIN_LEN
 
 
 def _split_w(data: bytes, count: int) -> list[int]:
     chunks = []
     for byte in data:
-        if w == 8:
+        if W == 8:
             chunks.append(byte)
-        elif w == 4:
+        elif W == 4:
             chunks.append((byte >> 4) & 0x0F)
             chunks.append(byte & 0x0F)
-        elif w == 2:
+        elif W == 2:
             for shift in (6, 4, 2, 0):
                 chunks.append((byte >> shift) & 0x03)
         else:
@@ -52,7 +47,7 @@ def WINTER(h, SK) -> list:
 
     b = _split_w(h, A)
     csum = A * (CHAIN_LEN - 1) - sum(b)
-    csum_bytes = csum.to_bytes(math.ceil(C * w / 8), 'big')
+    csum_bytes = csum.to_bytes(math.ceil(C * W / 8), 'big')
     b_csum = _split_w(csum_bytes, C)
 
     b_all = b + b_csum
@@ -81,7 +76,7 @@ def Verify(R, Z, M: bytes, KeyID: int) -> bytes:
     h = hash_lms((1, KeyID), R, M)[:N_BYTES]
     b = _split_w(h, A)
     csum = A * (CHAIN_LEN - 1) - sum(b)
-    csum_bytes = csum.to_bytes(math.ceil(C * w / 8), 'big')
+    csum_bytes = csum.to_bytes(math.ceil(C * W / 8), 'big')
     b_csum = _split_w(csum_bytes, C)
     b_all = b + b_csum
 

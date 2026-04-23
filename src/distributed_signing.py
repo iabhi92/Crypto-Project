@@ -1,5 +1,5 @@
 from hash import hash_lms
-from utils import n, CRV
+from utils import N, CRV
 from lamport import WINTER
 import secrets
 
@@ -15,7 +15,7 @@ def KK_Setup(SK_shares, k, KeyID: int, SK, R, PATH):
     Rt_list = {}
     CHKt_list = {}
     if isinstance(R, int):
-        R = R.to_bytes((n + 7) // 8, "big")
+        R = R.to_bytes((N + 7) // 8, "big")
     for t in range(1, k + 1):
         if t not in K:
             K[t] = {}
@@ -46,13 +46,13 @@ def KK_Setup(SK_shares, k, KeyID: int, SK, R, PATH):
         row = []
         for j in range(len(SK[i])):
             if isinstance(SK[i][j], int):
-                value = SK[i][j].to_bytes((n + 7) // 8, "big")
+                value = SK[i][j].to_bytes((N + 7) // 8, "big")
             else:
                 value = bytearray(SK[i][j])
             for t in range(1, k + 1):
                 share = SK_shares[t - 1][i][j]
                 if isinstance(share, int):
-                    share = share.to_bytes((n + 7) // 8, "big")
+                    share = share.to_bytes((N + 7) // 8, "big")
                 for x in range(len(value)):
                     value[x] ^= share[x]
             row.append(bytes(value))
@@ -111,13 +111,13 @@ def KK_Aggregator_Sign(M, CRV, KeyID: int):
     Z = []
     for i in range(len(CRVt)):
         if isinstance(CRVt[i], int):
-            value = bytearray(CRVt[i].to_bytes((n + 7) // 8, "big"))
+            value = bytearray(CRVt[i].to_bytes((N + 7) // 8, "big"))
         else:
             value = bytearray(CRVt[i])
         for t in trustees:
             share = Zt_values[t][i]
             if isinstance(share, int):
-                share = share.to_bytes((n + 7) // 8, "big")
+                share = share.to_bytes((N + 7) // 8, "big")
             for j in range(len(value)):
                 value[j] ^= share[j]
         Z.append(bytes(value))

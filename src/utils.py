@@ -9,10 +9,12 @@ See page 8 https://cic.iacr.org/p/2/2/24/pdf
 n can be 128 or 256
 w can be 1, 2, 4 or 8
 """
-n = 128
-w = 8
-a = n / w
-c = math.log(a * (pow(2, w) - 1), 2) / w
+N = 128
+N_BYTES = N // 8
+W = 8
+A = N // W
+C = math.ceil(math.log2(A * (2**W - 1)) / W)
+CHAIN_LEN = 2**W
 
 
 """
@@ -40,5 +42,5 @@ class CRV:
     SK: any
 
 
-def randomBits(bits: int = n):
+def randomBits(bits: int = N):
     return secrets.randbits(bits)
