@@ -1,4 +1,4 @@
-from distributed_signing import KK_Setup, KK_GenSig1, KK_GenSig2, KK_Auth
+from distributed_signing import KK_Setup
 from stateful_hash import StatefulGen, StatefulVerify
 from merkle_tree import MT_MakePath
 from lamport import WINTER
@@ -117,68 +117,3 @@ def AggregatorSign(m: bytes, crv: list[CRV], keyID: int) -> tuple[PATH, int, lis
 # This is not in the paper but made this so it was clear
 def AggregatorVerify(m: bytes, r: int, path: PATH, z) -> bool:
     return StatefulVerify(m, r, path, z)
-
-""" 
-Trustee setup function
-"""
-
-keylist: list[list] = []
-current: list[tuple] = []
-k_t = None
-
-# I think the dealer runs this and gives the keylist, current 
-# and k[t] to trustee t
-def TrusteeSetup(cl: CL, ks: list, k: int):
-    global keylist, current
-    
-    keylist = [0] * k
-    current = [0] * k
-
-    for t in range(0, k):
-        keylist[t] = []
-
-        # Not sure where d comes from
-        for keyID in range(0, d):
-            if t in cl[keyID]:
-                keylist[t].append(keyID)
-        
-        current[t] = None
-
-    # Returning this so the dealer can distribute the lists to each trustee
-    return (keylist, current, ks)
-
-
-"""
-Functions that run on the trustee
-"""
-
-def ShardSign1(t, keyID, m):
-    global keylist, current
-    
-    if keyID not in keylist[t]:
-        return None
-    else:
-        keylist[t].remove(keyID)
-        current[t] = (keyID, m)
-        
-        return KK_GenSig1(k_t, keyID)
-
-
-def ShardSign2(t, r_prime, chk_prime_t):
-    if current is None:
-        return None
-    else:
-        keyID, m = current[t]
-        current[t] = None
-
-        if KK_Auth(k_t, keyID, r_prime, chk_prime_t):
-            # Don't know how to get r from r_prime
-            # Could be a typo, assuming it is r_prime instead of r
-            # page 25
-            h = hash_lms((1, keyID), r_prime, m)
-            
-            return KK_GenSig2(k_t, keyID, h)
-        else:
-            return None
-
-
