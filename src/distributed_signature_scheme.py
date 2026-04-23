@@ -53,10 +53,10 @@ def MakeKeyList(ks: list, c: list) -> list:
 def AggregatorSign(m: bytes, crv: list[CRV], keyID: int) -> tuple[PATH, int, list[int]]:
     c = cl_s[keyID]
     
-    r_ts = [0] * len(c)
-    chk_ts = [0] * len(c)
-    path_ts = [0] * len(c)
-    z_ts = [0] * len(c)
+    r_ts = []
+    chk_ts = []
+    path_ts = []
+    z_ts = []
 
     for t in c:
         # This needs to get the result of shardsign1 when called by that trustee
@@ -77,6 +77,9 @@ def AggregatorSign(m: bytes, crv: list[CRV], keyID: int) -> tuple[PATH, int, lis
         # This needs to get the result of shardsign2 when called by that trustee
         # So this needs to communicate with the program running on that trustee
         path_t, z_t = ShardSign2(t, r, chk[i])
+
+        path_ts.append(path_t)
+        z_ts.append(z_t)
         i += 1
 
     h = hash_lms((1, keyID), r, m)
