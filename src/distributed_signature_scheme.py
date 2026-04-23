@@ -90,14 +90,14 @@ def AggregatorSign(m: bytes, crv: list[CRV], keyID: int) -> tuple[PATH, int, lis
     path = crv[keyID].PATH
     for path_t in path_ts: path ^= path_t
 
-    # This could be wrong. Right now this expects there to be something like this
+    # This could be wrong. Right now this expects z_ts to be something like this
     # [
     #   [a, b, c],
     #   [c, d, e],
     #   [f, g, h]
     # ]
-    # It should then give
-    # [(a ^ c ^ f), (b ^ d ^ g), (c ^ e ^ h)]
+    # It should then give z as
+    # [(z_crv[0] ^ a ^ c ^ f), (z_crv[1] ^ b ^ d ^ g), (z_crv[2] ^ c ^ e ^ h)]
     z = z_crv
     for i in range(0, len(z_ts[0])):
         z_i = z_ts[0][i]
