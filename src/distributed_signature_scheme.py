@@ -1,5 +1,5 @@
 from distributed_signing import KK_Setup
-from stateful_hash import StatefulGen
+from stateful_hash import StatefulGen, StatefulVerify
 from merkle_tree import MT_MakePath
 from lamport import WINTER
 from utils import randomBits, N_BYTES, CHAIN_LEN, A, C, CPK, CRV, PATH, CL
@@ -50,7 +50,7 @@ def MakeKeyList(ks: list, c: list) -> list:
 
 
 # This signs a message using the trustees for the coalition in cl_s[keyID]
-def AggregatorSign(m, crv: list[CRV], keyID: int) -> tuple[PATH, int, int]:
+def AggregatorSign(m: bytes, crv: list[CRV], keyID: int) -> tuple[PATH, int, list[int]]:
     c = cl_s[keyID]
     
     r_ts = [0] * len(c)
@@ -87,10 +87,29 @@ def AggregatorSign(m, crv: list[CRV], keyID: int) -> tuple[PATH, int, int]:
     path = crv[keyID].PATH
     for path_t in path_ts: path ^= path_t
 
+    # This could be wrong. Right now this expects there to be something like this
+    # [
+    #   [a, b, c],
+    #   [c, d, e],
+    #   [f, g, h]
+    # ]
+    # It should then give
+    # [(a ^ c ^ f), (b ^ d ^ g), (c ^ e ^ h)]
     z = z_crv
-    for z_t in z_ts: z ^= z_t
+    for i in range(0, len(z_ts[0])):
+        z_i = z_ts[0][i]
 
-    return path, r, z
+        for x in range(0, len(z_ts)):
+            z_i ^= z_ts[x][i]
+
+        z[i] ^= z_i
+
+    return (path, r, z)
+
+
+# This is not in the paper but made this so it was clear
+def AggregatorVerify(m: bytes, r: int, path: PATH, z) -> bool:
+    return StatefulVerify(m, r, path, z)
 
 
 def TrusteeSetup(cl, ks, k):
