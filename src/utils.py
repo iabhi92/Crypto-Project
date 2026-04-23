@@ -31,6 +31,14 @@ See page 11 and 12 https://cic.iacr.org/p/2/2/24/pdf
 PATH: TypeAlias = list[bytes | int]
 PK: TypeAlias = bytes
 
+
+"""
+Contains a list of signing coalition lists, where each element in the sublist is an integer
+corresponding to a trustee. The list is indexed by KeyID
+See page 23 https://cic.iacr.org/p/2/2/24/pdf
+"""
+CL: TypeAlias = list[list[int]]
+
 class CPK:
     ROOT: any
 
