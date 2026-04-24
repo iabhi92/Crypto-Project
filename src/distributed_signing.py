@@ -54,7 +54,10 @@ def PRF_Chk(seed: bytes, key_id: int, out_len: int) -> bytes:
     return hash_lms(PRF_CHK_TWEAK + (key_id,), seed, _serialize_len(out_len))[:out_len]
 
 
-def PRF_Auth(seed: bytes, key_id: int, r: bytes) -> bytes:
+def PRF_Auth(seed: bytes, key_id: int, r) -> bytes:
+    if isinstance(r, int):
+        r = r.to_bytes(N_BYTES, "big")
+    r = bytes(r)
     return hash_lms(PRF_AUTH_TWEAK + (key_id,), seed, r)[:N_BYTES]
 
 
@@ -70,8 +73,37 @@ def PRF_Chain(seed: bytes, key_id: int, i: int, j: int, out_len: int) -> bytes:
 #     return bool(sk_shares) and isinstance(sk_shares[0], (bytes, bytearray))
 
 
+def KK_SetupContribution(
+    seed: bytes,
+    KeyID: int,
+    R,
+    path_lens: list[int],
+    sk_shape: tuple[int, int],
+) -> dict:
+    if isinstance(R, int):
+        R = R.to_bytes(N_BYTES, "big")
+    R = bytes(R)
+    rows, cols = sk_shape
+    return {
+        "Rt": PRF_R(seed, KeyID, N_BYTES),
+        "CHKt": PRF_Chk(seed, KeyID, N_BYTES),
+        "Auth": PRF_Auth(seed, KeyID, R),
+        "PATHt": [
+            PRF_Path(seed, KeyID, node_idx, node_len)
+            for node_idx, node_len in enumerate(path_lens)
+        ],
+        "SKt": [
+            [
+                PRF_Chain(seed, KeyID, i, j, N_BYTES)
+                for j in range(cols)
+            ]
+            for i in range(rows)
+        ],
+    }
+
+
 def KK_Setup(
-    trustee_seeds: dict[int, bytes],
+    trustee_contribs: dict[int, dict],
     KeyID: int,
     SK,
     R: bytes,
@@ -87,42 +119,25 @@ def KK_Setup(
     path_keyid = PATH[-1]
     path_lens = [len(node) for node in path_nodes]
 
-    trustee_ids = sorted(trustee_seeds.keys())
+    trustee_ids = sorted(trustee_contribs.keys())
 
-    Rt_list = {}
-    CHKt_list = {}
-    Auth_list = {}
-    PATHt_list = {}
-    SKt_list = {}
+    Rt_list = {t: trustee_contribs[t]["Rt"] for t in trustee_ids}
+    CHKt_list = {t: trustee_contribs[t]["CHKt"] for t in trustee_ids}
+    Auth_list = {t: trustee_contribs[t]["Auth"] for t in trustee_ids}
+    PATHt_list = {t: trustee_contribs[t]["PATHt"] for t in trustee_ids}
+    SKt_list = {t: trustee_contribs[t]["SKt"] for t in trustee_ids}
 
-    for t in trustee_ids:
-        seed = bytes(trustee_seeds[t])
-
-        Rt_list[t] = PRF_R(seed, KeyID, N_BYTES)
-        CHKt_list[t] = PRF_Chk(seed, KeyID, N_BYTES)
-        Auth_list[t] = PRF_Auth(seed, KeyID, R)
-
-        PATHt_list[t] = [
-            PRF_Path(seed, KeyID, node_idx, node_len)
-            for node_idx, node_len in enumerate(path_lens)
-        ]
-
-        skt = []
-        for i in range(len(SK)):
-            row = []
-            for j in range(len(SK[i])):
-                row.append(PRF_Chain(seed, KeyID, i, j, N_BYTES))
-            skt.append(row)
-        SKt_list[t] = skt
-
+    # CRV.R = real R xor all trustee Rt
     crv.R = _xor_many([R] + [Rt_list[t] for t in trustee_ids])
 
+    # CRV.CHK[target] = Auth[target] xor all CHKt
     crv.CHK = {}
     for target_t in trustee_ids:
         crv.CHK[target_t] = _xor_many(
             [Auth_list[target_t]] + [CHKt_list[t] for t in trustee_ids]
         )
 
+    # CRV.PATH = real PATH xor all trustee PATHt
     crv_path_nodes = []
     for node_idx, node in enumerate(path_nodes):
         value = bytearray(node)
@@ -134,6 +149,7 @@ def KK_Setup(
 
     crv.PATH = crv_path_nodes + [path_keyid]
 
+    # CRV.SK = real SK xor all trustee SKt
     crv_SK = []
     for i in range(len(SK)):
         row = []
@@ -264,7 +280,6 @@ def KK_Sign2(t, R_Prime, CHK_Prime):
     return None
 
 
-
 # def KK_GenSig2(Kt, KeyID: int, h):
 #     PATHt = Kt[KeyID]["PATHt"]
 #     SKt = Kt[KeyID]["SKt"]
@@ -284,7 +299,6 @@ def KK_GenSig2(Kt: bytes, KeyID: int, h, path_lens):
         for node_idx, node_len in enumerate(path_lens)
     ]
     return PATHt, Zt
-
 
 
 # minimal project

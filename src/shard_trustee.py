@@ -16,32 +16,50 @@ cl_s: CL = []
 
 
 # This sets up distributed signature scheme for each coalition in cl
-def ShardSetup(d: int, n: int, cl: CL) -> tuple[CPK, list[CRV], dict]:
+def ShardSetup(d: int, n: int, cl: CL, contribution_provider) -> tuple[CPK, list[CRV], dict]:
     global cl_s
     cl_s = cl
+
     trustee_init = {}
     for t in range(1, n + 1):
         trustee_init[t] = {
-            "seed": randomBits().to_bytes(N_BYTES, "big"),
             "allowed_keyids": set(),
             "path_lens": {},
         }
 
     crvs = [0] * d
     cpk, csk = StatefulGen(d)
+
     pk = []
     for index in range(d):
         tips = [csk[index][i][CHAIN_LEN - 1] for i in range(A + C)]
         pk.append(hash_lms((0, index), *tips)[:N_BYTES])
+
     for keyID in range(d):
         r = randomBits().to_bytes(N_BYTES, "big")
         path = MT_MakePath(pk, keyID)
         sk = csk[keyID]
         coalition = cl[keyID]
-        keys = {}
+
+        path_lens = [len(node) for node in path[:-1]]
+        sk_shape = (len(sk), len(sk[0]))
+
+        trustee_contribs = {}
         for t in coalition:
-            keys[t] = trustee_init[t]["seed"]
-        crvs[keyID] = ds.KK_Setup(keys, keyID, sk, r, path)
+            trustee_contribs[t] = contribution_provider(
+                t,
+                keyID,
+                r,
+                path_lens,
+                sk_shape,
+            )
+        crvs[keyID] = ds.KK_Setup(
+            trustee_contribs,
+            keyID,
+            sk,
+            r,
+            path,
+        )
         for t in coalition:
             trustee_init[t]["allowed_keyids"].add(keyID)
             trustee_init[t]["path_lens"][keyID] = crvs[keyID].path_lens
