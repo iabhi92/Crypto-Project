@@ -1,9 +1,12 @@
 import os
 import pytest
-
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 import distributed_signing as ds
 import shard_trustee as st
 import stateful_hash
+from utils import N_BYTES
+
 
 # reset all module-level state before each test so nothing leaks between runs
 @pytest.fixture(autouse=True)
@@ -26,11 +29,35 @@ def reset_globals():
     st.cl_s = []
 
 
+def _trustee_seeds(n):
+    return {t: os.urandom(N_BYTES) for t in range(1, n + 1)}
+
+
+def _make_contribution_provider(trustee_seeds):
+    def contribution_provider(t, key_id, r, path_lens, sk_shape):
+        return ds.KK_SetupContribution(
+            trustee_seeds[t],
+            key_id,
+            r,
+            path_lens,
+            sk_shape,
+        )
+
+    return contribution_provider
+
+
 def _setup(d, n, cl):
-    # run ShardSetup then call TrusteeSetup for every trustee that was created
-    cpk, crvs, trustee_init = st.ShardSetup(d, n, cl)
+    # Trustees generate/hold their own seeds outside ShardSetup.
+    trustee_seeds = _trustee_seeds(n)
+    provider = _make_contribution_provider(trustee_seeds)
+    cpk, crvs, trustee_init = st.ShardSetup(d, n, cl, provider)
     for t, info in trustee_init.items():
-        st.TrusteeSetup(t, info["seed"], info["allowed_keyids"], info["path_lens"])
+        st.TrusteeSetup(
+            t,
+            trustee_seeds[t],
+            info["allowed_keyids"],
+            info["path_lens"],
+        )
     return cpk, crvs
 
 
