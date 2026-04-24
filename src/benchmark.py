@@ -7,6 +7,7 @@ from statistics import mean, stdev
 from utils import N_BYTES
 from lamport import Gen, Sign, Verify
 from merkle_tree import MT_Construct, MT_MakePath, MT_Verify
+import distributed_signing as ds
 
 # Benchmark mode:
 # FAST is useful for local debugging.
@@ -247,11 +248,28 @@ def reset_distributed_globals():
     st.cl_s = []
 
 
-def initialise_trustees(st, trustee_init):
+def make_trustee_seeds(n):
+    return {t: os.urandom(N_BYTES) for t in range(1, n + 1)}
+
+
+def make_contribution_provider(trustee_seeds):
+    def contribution_provider(t, key_id, r, path_lens, sk_shape):
+        return ds.KK_SetupContribution(
+            trustee_seeds[t],
+            key_id,
+            r,
+            path_lens,
+            sk_shape,
+        )
+
+    return contribution_provider
+
+
+def initialise_trustees(st, trustee_init, trustee_seeds):
     for t, init in trustee_init.items():
         st.TrusteeSetup(
             t,
-            init["seed"],
+            trustee_seeds[t],
             init["allowed_keyids"],
             init["path_lens"],
         )
@@ -278,13 +296,15 @@ def benchmark_distributed_prf():
 
                 def setup_once(D=D, n=n, cl=cl):
                     reset_distributed_globals()
-                    _, _, trustee_init = st.ShardSetup(D, n, cl)
-                    initialise_trustees(st, trustee_init)
+                    trustee_seeds = make_trustee_seeds(n)
+                    provider = make_contribution_provider(trustee_seeds)
+                    _, _, trustee_init = st.ShardSetup(D, n, cl, provider)
+                    initialise_trustees(st, trustee_init, trustee_seeds)
 
                 results.append(
                     benchmark_operation(
                         "PRF Distributed HBS",
-                        f"ShardSetup D={D},k={k}",
+                        f"ShardSetup+TrusteeSetup D={D},k={k}",
                         setup_once,
                         runs=SETUP_RUNS,
                     )
@@ -296,8 +316,10 @@ def benchmark_distributed_prf():
                 cl = [list(range(1, k + 1)) for _ in range(D)]
 
                 reset_distributed_globals()
-                _, crvs, trustee_init = st.ShardSetup(D, n, cl)
-                initialise_trustees(st, trustee_init)
+                trustee_seeds = make_trustee_seeds(n)
+                provider = make_contribution_provider(trustee_seeds)
+                _, crvs, trustee_init = st.ShardSetup(D, n, cl, provider)
+                initialise_trustees(st, trustee_init, trustee_seeds)
 
                 signatures = []
                 sign_counter = {"value": 0}
@@ -421,7 +443,7 @@ def comparison_summary():
             "Parameter": "D leaves, k trustees",
             "Runs": "-",
             "Average time (ms)": "O(D * k * (A + C) * CHAIN_LEN)",
-            "Std ms": "Creates CRV correction values",
+            "Std ms": "Collects trustee PRF contributions and creates CRV correction values",
         },
         {
             "Scheme": "PRF Distributed HBS",

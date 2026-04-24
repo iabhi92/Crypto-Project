@@ -6,6 +6,6 @@ Merkle Tree,MT_Construct,D leaves,-,O(D),Builds the full authentication tree
 Merkle Tree,MT_MakePath,D leaves,-,O(D + log D),Constructs tree then extracts path
 Merkle Tree,MT_Verify,D leaves,-,O(log D),Verifies one authentication path
 Stateful HBS,StatefulSign,D leaves,-,O(OTS sign + log D),Non-distributed HBS baseline
-PRF Distributed HBS,ShardSetup,"D leaves, k trustees",-,O(D * k * (A + C) * CHAIN_LEN),Creates CRV correction values
+PRF Distributed HBS,ShardSetup,"D leaves, k trustees",-,O(D * k * (A + C) * CHAIN_LEN),Collects trustee PRF contributions and creates CRV correction values
 PRF Distributed HBS,AggregatorSign,"D leaves, k trustees",-,O(k * (A + C) * CHAIN_LEN + k log D),Two-round PRF-based signing
 PRF Distributed HBS,AggregatorVerify,D leaves,-,O(OTS verify + log D),Same verification target as stateful HBS
