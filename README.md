@@ -56,7 +56,7 @@ Defined in `src/utils.py` (see §3.1 of the paper):
 | `N_BYTES` | 16 | N / 8 — byte length of hash outputs and keys |
 | `W` | 8 | Winternitz parameter (chain length = 2^W = 256) |
 | `A` | 16 | Message digits = N / W |
-| `C` | 3 | Checksum digits |
+| `C` | 2 | Checksum digits |
 | `CHAIN_LEN` | 256 | Chain length = 2^W |
 
 ---
