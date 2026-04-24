@@ -26,20 +26,22 @@ def _to_n_bytes(v):
 
 
 def _xor_bytes(left: bytes, right: bytes) -> bytes:
-    return bytes(a ^ b for a, b in zip(left, right))
+    # int XOR is faster than a byte-by-byte loop in Python
+    n = len(left)
+    return (int.from_bytes(left, 'big') ^ int.from_bytes(right, 'big')).to_bytes(n, 'big')
 
 
 def _xor_many(values: list[bytes]) -> bytes:
     if not values:
         return b""
-    out = bytearray(values[0])
+    n = len(values[0])
+    # accumulate with integer XOR — avoids per-byte Python overhead
+    acc = int.from_bytes(values[0], 'big')
     for v in values[1:]:
-        v = bytes(v)
-        if len(v) != len(out):
+        if len(v) != n:
             raise ValueError("Cannot XOR byte strings with different lengths")
-        for i in range(len(out)):
-            out[i] ^= v[i]
-    return bytes(out)
+        acc ^= int.from_bytes(v, 'big')
+    return acc.to_bytes(n, 'big')
 
 
 def _serialize_len(n: int) -> bytes:
