@@ -9,11 +9,12 @@ cpk: CPK = None
 
 # This is a dict of the keyIDs where each can be true or false to mark if they are used or not
 # Example {1 : True, 2: False}
-keyIDs: dict[int, bool] = {}
+_KEY_IDS: dict[int, bool] = {}
+keyIDs: dict[int, bool] = _KEY_IDS
 
 # This is stateless so doesn't need access the the class variables
 def StatefulGen(d: int) -> tuple[CPK, CSK]:
-    global cpk, csk, keyIDs
+    global cpk, csk, keyIDs, _KEY_IDS
     
     pk = []
     sk = []
@@ -32,22 +33,27 @@ def StatefulGen(d: int) -> tuple[CPK, CSK]:
     cpk.ROOT = MT_Construct(pk[0:d])[1]
     csk = sk[0:d]
 
+    # Keep a stable dict object for key tracking so external rebinds like
+    # `stateful_hash.keyIDs = {}` do not break modules that imported keyIDs.
+    _KEY_IDS.clear()
     for index in range(0, d):
-        keyIDs[index] = False
+        _KEY_IDS[index] = False
+    keyIDs = _KEY_IDS
 
     return (cpk, csk)
 
 
 # This is stateful and it needs access to csk and the keyIDs
 def StatefulSign(keyID: int, m: bytes) -> tuple[int, PATH, list[list]]:
-    global keyIDs
+    global keyIDs, _KEY_IDS
+    keyIDs = _KEY_IDS
     
-    if keyID in keyIDs:
-        # keyID has already been used
-        if keyIDs[keyID]:
-            return ()
+    if keyID in _KEY_IDS:
+        # keyID may only be used once; False means still unused
+        if not _KEY_IDS[keyID]:
+            _KEY_IDS[keyID] = True
         else:
-            keyIDs[keyID] = True
+            return ()
 
     r = randomBits()
     r_bytes = r.to_bytes(N_BYTES, 'big')
@@ -58,7 +64,7 @@ def StatefulSign(keyID: int, m: bytes) -> tuple[int, PATH, list[list]]:
 
     # Page 8 of paper to compute pk from sk
     pk = []
-    for index in range(0, len(keyIDs)):
+    for index in range(0, len(_KEY_IDS)):
         tips = [csk[index][i][CHAIN_LEN - 1] for i in range(A + C)]
         pk.append(hash_lms((0, index), *tips)[:N_BYTES])
 
