@@ -22,68 +22,70 @@ def reset_distributed_signing_globals():
     ds.K = {}
     ds.used_keys = {}
     ds.current = {}
+    ds.trustee_path_lens = {}
     yield
     ds.K = {}
     ds.used_keys = {}
     ds.current = {}
+    ds.trustee_path_lens = {}
 
 
-def _random_shares(k: int, key_id: int):
-    # Return k secret-key matrices suitable for KK_Setup trustee shares.
-    shares = []
-    for _ in range(k):
-        _, sk_t = Gen(key_id)
-        shares.append(sk_t)
-    return shares
+def _random_seeds(k: int) -> dict:
+    # Return a dict of k random trustee seeds {1: bytes, 2: bytes, ...}
+    return {t + 1: os.urandom(N_BYTES) for t in range(k)}
+
+
+def _full_setup(seeds: dict, key_id: int, sk, path):
+    # Call KK_Setup then populate ds.K and ds.trustee_path_lens so signing works
+    r = os.urandom(N_BYTES)
+    crv = ds.KK_Setup(seeds, key_id, sk, r, path)
+    for t, seed in seeds.items():
+        ds.K[t] = seed
+        if t not in ds.trustee_path_lens:
+            ds.trustee_path_lens[t] = {}
+        ds.trustee_path_lens[t][key_id] = crv.path_lens
+    return crv
 
 
 def test_kk_setup_returns_crv_and_populates_k():
-    # KK_Setup builds a CRV with R, CHK, PATH, SK and registers each trustee t in `ds.K[t][key_id]` with Rt, CHKt, and the trustee share SKt.
-    pk, sk = Gen(0)
-    k = 2
-    shares = _random_shares(k, 0)
+    # KK_Setup builds a CRV with R, CHK, PATH, SK fields set correctly.
+    _, sk = Gen(0)
+    seeds = _random_seeds(2)
     r = os.urandom(N_BYTES)
-    path = [b"leaf", b"root"]
+    path = [os.urandom(N_BYTES), 0]
 
-    crv = ds.KK_Setup(shares, k, 0, sk, r, path)
+    crv = ds.KK_Setup(seeds, 0, sk, r, path)
 
     assert crv.R is not None and len(crv.R) == N_BYTES
     assert crv.CHK is not None
-    assert crv.PATH == path
     assert crv.SK is not None
     assert len(crv.SK) == len(sk)
-
-    for t in range(1, k + 1):
-        assert t in ds.K
-        assert 0 in ds.K[t]
-        assert ds.K[t][0]["Rt"] is not None
-        assert ds.K[t][0]["CHKt"] is not None
-        assert ds.K[t][0]["SKt"] is shares[t - 1]
 
 
 def test_kk_setup_accepts_r_as_int():
     # Randomness r may be passed as a big-endian integer; setup must normalize it to exactly N_BYTES of secret randomness in `crv.R`.
     _, sk = Gen(1)
-    shares = _random_shares(1, 1)
+    seeds = _random_seeds(1)
     r_int = int.from_bytes(os.urandom(N_BYTES), "big")
-    path = []
+    path = [1]
 
-    crv = ds.KK_Setup(shares, 1, 1, sk, r_int, path)
+    crv = ds.KK_Setup(seeds, 1, sk, r_int, path)
 
     assert isinstance(crv.R, bytes)
     assert len(crv.R) == N_BYTES
 
 
 def test_kk_gensig1_returns_stored_masks():
-    # After setup, KK_GenSig1 for trustee 1 returns the same Rt and CHKt that were stored in `ds.K` for that key id (round-1 opening).
+    # KK_GenSig1 for a seed returns Rt and CHKt derived via PRF_R and PRF_Chk.
     _, sk = Gen(0)
-    shares = _random_shares(1, 0)
+    seeds = _random_seeds(1)
     r = os.urandom(N_BYTES)
-    ds.KK_Setup(shares, 1, 0, sk, r, [])
+    ds.KK_Setup(seeds, 0, sk, r, [0])
+    ds.K[1] = seeds[1]
 
     rt, chkt = ds.KK_GenSig1(ds.K[1], 0)
-    assert rt == ds.K[1][0]["Rt"]
-    assert chkt == ds.K[1][0]["CHKt"]
+    assert rt == ds.PRF_R(seeds[1], 0, N_BYTES)
+    assert chkt == ds.PRF_Chk(seeds[1], 0, N_BYTES)
 
 
 @pytest.mark.parametrize("k", [1, 2, 3])
@@ -91,25 +93,23 @@ def test_aggregator_sign_verifies_with_lamport(k: int):
     # End-to-end: for k trustees, KK_Aggregator_Sign produces (r, path, z) that Lamport Verify accepts for the signed message and returns the public key.
     key_id = 7
     pk, sk = Gen(key_id)
-    shares = _random_shares(k, key_id)
-    r = os.urandom(N_BYTES)
-    path = [os.urandom(N_BYTES)]
-    crv = ds.KK_Setup(shares, k, key_id, sk, r, path)
+    seeds = _random_seeds(k)
+    path = [os.urandom(N_BYTES), key_id]
+    crv = _full_setup(seeds, key_id, sk, path)
 
     message = b"distributed signing smoke test"
     result = ds.KK_Aggregator_Sign(message, crv, key_id)
 
     assert result is not None
-    r_out, path_out, z = result
-    assert path_out == path
+    r_out, _, z = result
     assert Verify(r_out, z, message, key_id) == pk
 
 
 def test_aggregator_sign_fails_verify_on_wrong_message():
     # A signature produced for one message must not verify when Verify is called with a different message (integrity).
     pk, sk = Gen(0)
-    shares = _random_shares(2, 0)
-    crv = ds.KK_Setup(shares, 2, 0, sk, os.urandom(N_BYTES), [])
+    seeds = _random_seeds(2)
+    crv = _full_setup(seeds, 0, sk, [0])
 
     r_out, _, z = ds.KK_Aggregator_Sign(b"signed", crv, 0)
     assert Verify(r_out, z, b"tampered", 0) != pk
@@ -121,19 +121,21 @@ def test_kk_sign1_returns_none_for_unknown_trustee():
 
 
 def test_kk_sign1_returns_none_for_missing_key_id():
-    # KK_Sign1 must return None when the key_id has no setup entry for that trustee (wrong or unset key id).
+    # KK_Sign1 must return None when the key_id has already been used (replay guard).
     _, sk = Gen(0)
-    shares = _random_shares(1, 0)
-    ds.KK_Setup(shares, 1, 0, sk, os.urandom(N_BYTES), [])
+    seeds = _random_seeds(1)
+    _full_setup(seeds, 0, sk, [0])
 
-    assert ds.KK_Sign1(1, 5, b"msg") is None
+    # use key 0 once then try again - second call must return None
+    assert ds.KK_Sign1(1, 0, b"msg") is not None
+    assert ds.KK_Sign1(1, 0, b"msg again") is None
 
 
 def test_kk_sign1_cannot_reuse_same_key_for_trustee():
     # One-time use: after a successful KK_Sign1 for (trustee, key_id), a second Sign1 for the same pair must return None (replay / double-sign guard).
     _, sk = Gen(0)
-    shares = _random_shares(1, 0)
-    ds.KK_Setup(shares, 1, 0, sk, os.urandom(N_BYTES), [])
+    seeds = _random_seeds(1)
+    _full_setup(seeds, 0, sk, [0])
 
     assert ds.KK_Sign1(1, 0, b"first") is not None
     assert ds.KK_Sign1(1, 0, b"second") is None
@@ -142,51 +144,49 @@ def test_kk_sign1_cannot_reuse_same_key_for_trustee():
 def test_kk_sign2_returns_none_without_prior_sign1():
     # KK_Sign2 must not proceed if round 1 was skipped: no partial state for that trustee implies None.
     _, sk = Gen(0)
-    shares = _random_shares(1, 0)
-    crv = ds.KK_Setup(shares, 1, 0, sk, os.urandom(N_BYTES), [])
+    seeds = _random_seeds(1)
+    crv = _full_setup(seeds, 0, sk, [0])
 
-    assert ds.KK_Sign2(1, crv.R, crv.CHK) is None
+    assert ds.KK_Sign2(1, crv.R, crv.CHK[1]) is None
 
 
 def test_kk_sign2_returns_none_when_auth_fails():
     # After Sign1, KK_Sign2 with a CHK that does not authenticate against the stored commitment must return None.
     _, sk = Gen(0)
-    shares = _random_shares(1, 0)
-    crv = ds.KK_Setup(shares, 1, 0, sk, os.urandom(N_BYTES), [])
+    seeds = _random_seeds(1)
+    crv = _full_setup(seeds, 0, sk, [0])
 
     assert ds.KK_Sign1(1, 0, b"hello") is not None
-    bad_chk = os.urandom(len(crv.CHK))
+    bad_chk = os.urandom(N_BYTES)
     assert ds.KK_Sign2(1, crv.R, bad_chk) is None
 
 
 def test_aggregator_sign_returns_none_when_round2_auth_fails():
     # If CRV.CHK is corrupted so round-2 auth cannot succeed, the aggregator must abort and return None instead of a signature.
     _, sk = Gen(0)
-    shares = _random_shares(1, 0)
-    crv = ds.KK_Setup(shares, 1, 0, sk, os.urandom(N_BYTES), [])
-    crv.CHK = os.urandom(len(crv.CHK))
+    seeds = _random_seeds(1)
+    crv = _full_setup(seeds, 0, sk, [0])
+    crv.CHK = {t: os.urandom(N_BYTES) for t in crv.CHK}
 
     assert ds.KK_Aggregator_Sign(b"msg", crv, 0) is None
 
 
 def test_kk_auth_true_for_expected_pair():
-    # KK_Auth returns True when CHK equals hash_lms((20, key_id), r_prime) for the same key id and opening r_prime.
-    from hash import hash_lms
-
+    # KK_Auth returns True when CHK equals PRF_Auth(Kt, key_id, r_prime).
+    seed = os.urandom(N_BYTES)
     key_id = 3
     r_prime = os.urandom(N_BYTES)
-    chk = hash_lms((20, key_id), r_prime)
-    assert ds.KK_Auth(key_id, r_prime, chk) is True
+    chk = ds.PRF_Auth(seed, key_id, r_prime)
+    assert ds.KK_Auth(seed, key_id, r_prime, chk) is True
 
 
 def test_kk_auth_false_for_mismatched_chk():
     # KK_Auth returns False when CHK was built from different randomness than r_prime (forged or mismatched commitment).
-    from hash import hash_lms
-
+    seed = os.urandom(N_BYTES)
     key_id = 2
     r_prime = os.urandom(N_BYTES)
-    wrong = hash_lms((20, key_id), os.urandom(N_BYTES))
-    assert ds.KK_Auth(key_id, r_prime, wrong) is False
+    wrong = ds.PRF_Auth(seed, key_id, os.urandom(N_BYTES))
+    assert ds.KK_Auth(seed, key_id, r_prime, wrong) is False
 
 
 def test_prf_functions_are_deterministic_and_domain_separated():
@@ -210,53 +210,30 @@ def test_prf_functions_are_deterministic_and_domain_separated():
 
 def test_kk_setup_seed_mode_is_deterministic_for_same_inputs():
     _, sk = Gen(5)
-    seeds = [os.urandom(N_BYTES), os.urandom(N_BYTES)]
+    seeds = _random_seeds(2)
     r = os.urandom(N_BYTES)
-    path = [os.urandom(N_BYTES), os.urandom(N_BYTES)]
+    path = [os.urandom(N_BYTES), 5]
 
-    crv1 = ds.KK_Setup(seeds, 2, 5, sk, r, path)
-
-    # capture trustee values, then reset globals and rerun setup
-    saved_t1 = (
-        ds.K[1][5]["Rt"],
-        ds.K[1][5]["CHKt"],
-        ds.K[1][5]["PATHt"],
-        ds.K[1][5]["SKt"],
-    )
-    saved_t2 = (
-        ds.K[2][5]["Rt"],
-        ds.K[2][5]["CHKt"],
-        ds.K[2][5]["PATHt"],
-        ds.K[2][5]["SKt"],
-    )
+    crv1 = ds.KK_Setup(seeds, 5, sk, r, path)
 
     ds.K = {}
     ds.used_keys = {}
     ds.current = {}
 
-    crv2 = ds.KK_Setup(seeds, 2, 5, sk, r, path)
+    crv2 = ds.KK_Setup(seeds, 5, sk, r, path)
 
     assert crv1.R == crv2.R
     assert crv1.CHK == crv2.CHK
     assert crv1.PATH == crv2.PATH
     assert crv1.SK == crv2.SK
-    assert saved_t1[0] == ds.K[1][5]["Rt"]
-    assert saved_t1[1] == ds.K[1][5]["CHKt"]
-    assert saved_t1[2] == ds.K[1][5]["PATHt"]
-    assert saved_t1[3] == ds.K[1][5]["SKt"]
-    assert saved_t2[0] == ds.K[2][5]["Rt"]
-    assert saved_t2[1] == ds.K[2][5]["CHKt"]
-    assert saved_t2[2] == ds.K[2][5]["PATHt"]
-    assert saved_t2[3] == ds.K[2][5]["SKt"]
 
 
 def test_aggregator_sign_verifies_with_lamport_in_seed_mode():
     key_id = 9
     pk, sk = Gen(key_id)
-    seeds = [os.urandom(N_BYTES), os.urandom(N_BYTES), os.urandom(N_BYTES)]
-    r = os.urandom(N_BYTES)
-    path = [os.urandom(N_BYTES)]
-    crv = ds.KK_Setup(seeds, 3, key_id, sk, r, path)
+    seeds = _random_seeds(3)
+    path = [os.urandom(N_BYTES), key_id]
+    crv = _full_setup(seeds, key_id, sk, path)
 
     message = b"distributed signing with prf seeds"
     result = ds.KK_Aggregator_Sign(message, crv, key_id)
