@@ -1,0 +1,36 @@
+Scheme,Operation,Parameter,Runs,Average time (ms),Std ms
+Lamport/Winternitz,Gen,-,3,7.958033,0.329299
+Lamport/Winternitz,Sign,-,30,0.00622,0.000401
+Lamport/Winternitz,Verify,-,30,3.367797,0.182615
+Merkle Tree,MT_Construct,D=8,3,0.022767,0.000737
+Merkle Tree,MT_MakePath,D=8,3,0.0238,0.00148
+Merkle Tree,MT_Verify,D=8,30,0.00651,0.000516
+Merkle Tree,MT_Construct,D=16,3,0.044933,0.000404
+Merkle Tree,MT_MakePath,D=16,3,0.046033,0.00138
+Merkle Tree,MT_Verify,D=16,30,0.00798,0.00039
+Merkle Tree,MT_Construct,D=32,3,0.089133,0.000416
+Merkle Tree,MT_MakePath,D=32,3,0.0909,0.0013
+Merkle Tree,MT_Verify,D=32,30,0.00954,0.000361
+Stateful HBS,StatefulGen,D=8,3,62.830367,0.898693
+Stateful HBS,StatefulGen,D=16,3,124.616733,2.747969
+Stateful HBS,StatefulGen,D=32,3,249.478967,2.430029
+Stateful HBS,StatefulSign,D=128,30,1.064283,0.229773
+Stateful HBS,StatefulVerify,D=128,30,3.937603,0.505443
+PRF Distributed HBS,ShardSetup,"D=8,k=2",3,373.1414,3.047252
+PRF Distributed HBS,ShardSetup,"D=16,k=2",3,729.051933,9.777519
+PRF Distributed HBS,ShardSetup,"D=32,k=2",3,1477.9037,21.650088
+PRF Distributed HBS,AggregatorSign,"D=8,k=2",8,18.35265,0.148355
+PRF Distributed HBS,AggregatorVerify,"D=8,k=2",30,3.896217,0.547639
+PRF Distributed HBS,AggregatorSign,"D=16,k=2",16,18.400444,0.286782
+PRF Distributed HBS,AggregatorVerify,"D=16,k=2",30,3.854733,0.433364
+PRF Distributed HBS,AggregatorSign,"D=32,k=2",30,18.586287,0.560508
+PRF Distributed HBS,AggregatorVerify,"D=32,k=2",30,4.001207,0.498411
+PRF Distributed HBS,ShardSetup,"D=8,k=3",3,500.951333,2.930845
+PRF Distributed HBS,ShardSetup,"D=16,k=3",3,995.475767,1.930379
+PRF Distributed HBS,ShardSetup,"D=32,k=3",3,2022.0455,16.900996
+PRF Distributed HBS,AggregatorSign,"D=8,k=3",8,27.656462,0.596353
+PRF Distributed HBS,AggregatorVerify,"D=8,k=3",30,4.050787,0.247574
+PRF Distributed HBS,AggregatorSign,"D=16,k=3",16,27.861088,0.487159
+PRF Distributed HBS,AggregatorVerify,"D=16,k=3",30,4.028913,0.590794
+PRF Distributed HBS,AggregatorSign,"D=32,k=3",30,27.312933,0.488409
+PRF Distributed HBS,AggregatorVerify,"D=32,k=3",30,3.840233,0.466589
