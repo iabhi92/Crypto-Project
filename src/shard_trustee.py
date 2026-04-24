@@ -4,6 +4,7 @@ from merkle_tree import MT_MakePath
 from lamport import WINTER
 from utils import randomBits, N_BYTES, CHAIN_LEN, A, C, CPK, CRV, PATH, CL
 from hash import hash_lms
+import stateful_hash
 
 keylist = {}
 
@@ -13,131 +14,144 @@ Aggregator/Dealer functions
 
 cl_s: CL = []
 
+
 # This sets up distributed signature scheme for each coalition in cl
-def ShardSetup(d: int, k: int, cl: CL) -> tuple[CPK, CRV, list[int]]:
-    # Setting cl_s here to be used by other functions in this file
+def ShardSetup(d: int, n: int, cl: CL) -> tuple[CPK, list[CRV], dict]:
     global cl_s
     cl_s = cl
+    trustee_init = {}
+    for t in range(1, n + 1):
+        trustee_init[t] = {
+            "seed": randomBits().to_bytes(N_BYTES, "big"),
+            "allowed_keyids": set(),
+            "path_lens": {},
+        }
 
-    ks = [0] * k
     crvs = [0] * d
-    
-    for i in range(0, k):
-        ks[i] = randomBits().to_bytes(N_BYTES, 'big')
-
     cpk, csk = StatefulGen(d)
-
-    for keyID in range(0, d):
-        r = randomBits().to_bytes(N_BYTES, 'big')
-
-        pk = []
-        for index in range(0, d):
-            tips = [csk[index][i][CHAIN_LEN - 1] for i in range(A + C)]
-            pk.append(hash_lms((0, index), *tips)[:N_BYTES])
-
-        path = MT_MakePath(pk[0:d], keyID)
+    pk = []
+    for index in range(d):
+        tips = [csk[index][i][CHAIN_LEN - 1] for i in range(A + C)]
+        pk.append(hash_lms((0, index), *tips)[:N_BYTES])
+    for keyID in range(d):
+        r = randomBits().to_bytes(N_BYTES, "big")
+        path = MT_MakePath(pk, keyID)
         sk = csk[keyID]
-        k_prime = len(cl[keyID])
-        keys = MakeKeyList(ks, cl[keyID])
-
-        crvs[keyID] = ds.KK_Setup(keys, k_prime, keyID, sk, r, path)
-
-    return (cpk, crvs, ks)
+        coalition = cl[keyID]
+        keys = {}
+        for t in coalition:
+            keys[t] = trustee_init[t]["seed"]
+        crvs[keyID] = ds.KK_Setup(keys, keyID, sk, r, path)
+        for t in coalition:
+            trustee_init[t]["allowed_keyids"].add(keyID)
+            trustee_init[t]["path_lens"][keyID] = crvs[keyID].path_lens
+    stateful_hash.csk = None
+    return cpk, crvs, trustee_init
 
 
 # This makes the keylist for c, which is one of the coalitions in cl_s
-def MakeKeyList(ks: list, c: list) -> list:
-    keylist = [0] * len(c)
-
-    for i in range(0, len(c)):
-        keylist[i] = ks[c[i]]
-
-    return keylist
+def MakeKeyList(ks: dict, c: list) -> dict:
+    keys = {}
+    for t in c:
+        if t not in ks:
+            raise ValueError(f"Trustee {t} is not in the generated key store")
+        keys[t] = ks[t]
+    return keys
 
 
 # This signs a message using the trustees for the coalition in cl_s[keyID]
-def AggregatorSign(m: bytes, crv: list[CRV], keyID: int) -> tuple[PATH, int, list[int]]:
+def AggregatorSign(m: bytes, crv: list[CRV], keyID: int):
+    if keyID < 0 or keyID >= len(crv):
+        return None
+    if keyID >= len(cl_s):
+        return None
     c = cl_s[keyID]
-    
     r_ts = []
     chk_ts = []
+    # Round 1: ask each trustee in the coalition to produce Rt and CHKt
+    for t in c:
+        result = ShardSign1(t, keyID, m)
+        if result is None:
+            return None
+
+        r_t, chk_t = result
+        r_ts.append(r_t)
+        chk_ts.append(chk_t)
+    # Recover R = CRV.R xor all Rt
+    r = ds._xor_many([crv[keyID].R] + r_ts)
+    # Recover each trustee's own CHK value
+    chk_values = {}
+    for target_t in c:
+        chk = bytearray(crv[keyID].CHK[target_t])
+        for chk_t in chk_ts:
+            for i in range(len(chk)):
+                chk[i] ^= chk_t[i]
+        chk_values[target_t] = bytes(chk)
+
     path_ts = []
     z_ts = []
 
+    # Round 2: ask each trustee to authenticate R and produce PATHt, Zt
     for t in c:
-        # This needs to get the result of shardsign1 when called by that trustee
-        # So this needs to communicate with the program running on that trustee
-        r_t, chk_t = ShardSign1(t, keyID, m)
+        result = ShardSign2(t, r, chk_values[t])
+        if result is None:
+            return None
 
-        r_ts.append(r_t)
-        chk_ts.append(chk_t)
-
-    r = crv[keyID].R
-    for r_t in r_ts: r ^= r_t
-
-    chk = crv[keyID].CHK
-    for chk_t in chk_ts: chk ^= chk_t
-
-    i = 0
-    for t in c:
-        # This needs to get the result of shardsign2 when called by that trustee
-        # So this needs to communicate with the program running on that trustee
-        path_t, z_t = ShardSign2(t, r, chk[i])
-
+        path_t, z_t = result
         path_ts.append(path_t)
         z_ts.append(z_t)
-        i += 1
 
     h = hash_lms((1, keyID), r, m)
     z_crv = WINTER(h, crv[keyID].SK)
-    
-    # Im assuming there was a typo in the paper here
-    # See page 24 https://cic.iacr.org/p/2/2/24/pdf
-    path = crv[keyID].PATH
-    for path_t in path_ts: path ^= path_t
-
-    # This could be wrong. Right now this expects z_ts to be something like this
-    # [
-    #   [a, b, c],
-    #   [c, d, e],
-    #   [f, g, h]
-    # ]
-    # It should then give z as
-    # [(z_crv[0] ^ a ^ c ^ f), (z_crv[1] ^ b ^ d ^ g), (z_crv[2] ^ c ^ e ^ h)]
-    z = z_crv
-    for i in range(0, len(z_ts[0])):
-        z_i = z_ts[0][i]
-
-        for x in range(0, len(z_ts)):
-            z_i ^= z_ts[x][i]
-
-        z[i] ^= z_i
-
-    return (path, r, z)
+    # Recover Z = Z_CRV xor all Zt
+    z = []
+    for i in range(len(z_crv)):
+        value = bytearray(ds._to_n_bytes(z_crv[i]))
+        for z_t in z_ts:
+            share = ds._to_n_bytes(z_t[i])
+            for j in range(len(value)):
+                value[j] ^= share[j]
+        z.append(bytes(value))
+    # Recover PATH = PATH_CRV xor all PATHt
+    crv_path_nodes = crv[keyID].PATH[:-1]
+    path_keyid = crv[keyID].PATH[-1]
+    path = []
+    for idx, node in enumerate(crv_path_nodes):
+        value = bytearray(node)
+        for path_t in path_ts:
+            share = path_t[idx]
+            for j in range(len(value)):
+                value[j] ^= share[j]
+        path.append(bytes(value))
+    path.append(path_keyid)
+    return r, path, z
 
 
 # This is not in the paper but made this so it was clear
-def AggregatorVerify(m: bytes, r: int, path: PATH, z) -> bool:
+def AggregatorVerify(m: bytes, r: bytes, path: PATH, z) -> bool:
     return StatefulVerify(m, r, path, z)
 
 
-def TrusteeSetup(CL, K_store, k):
+def TrusteeSetup(
+    trustee_id: int,
+    seed: bytes,
+    allowed_keyids: set[int],
+    path_lens: dict[int, list[int]],
+) -> None:
     global keylist
-    keylist = {}
-    ds.K = K_store
-    for t in range(1, k + 1):
-        if t not in ds.K:
-            raise ValueError(f"Missing key material for trustee {t}")
-        keylist[t] = set()
-        for KeyID in range(len(CL)):
-            if t in CL[KeyID]:
-                keylist[t].add(KeyID)
-        ds.current[t] = None
+
+    ds.K[trustee_id] = bytes(seed)
+    ds.used_keys[trustee_id] = set()
+    ds.current[trustee_id] = None
+    ds.trustee_path_lens[trustee_id] = path_lens
+    keylist[trustee_id] = set(allowed_keyids)
 
 
 def ShardSign1(t, KeyID, M):
     global keylist
     if t not in keylist:
+        return None
+    if t not in ds.K:
         return None
     if t not in ds.current:
         return None
@@ -152,6 +166,8 @@ def ShardSign1(t, KeyID, M):
 def ShardSign2(t, R_Prime, CHK_Prime):
     if t not in keylist:
         return None
+    if t not in ds.K:
+        return None
     if t not in ds.current:
         return None
     if ds.current[t] is None:
@@ -159,9 +175,13 @@ def ShardSign2(t, R_Prime, CHK_Prime):
     else:
         KeyID, M = ds.current[t]
         ds.current[t] = None
-        # if ds.KK_Auth(K[t],KeyID,R_Prime,CHK_Prime):
-        if ds.KK_Auth(KeyID, R_Prime, CHK_Prime):
+        if t not in ds.trustee_path_lens:
+            return None
+        if KeyID not in ds.trustee_path_lens[t]:
+            return None
+        if ds.KK_Auth(ds.K[t], KeyID, R_Prime, CHK_Prime):
             h = hash_lms((1, KeyID), R_Prime, M)
-            return ds.KK_GenSig2(ds.K[t], KeyID, h)
+            path_lens=ds.trustee_path_lens[t][KeyID]
+            return ds.KK_GenSig2(ds.K[t], KeyID, h, path_lens)
         else:
             return None
