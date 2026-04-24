@@ -5,7 +5,7 @@ Implementation of the distributed and threshold Winternitz/Lamport signature sch
 > Kelsey, Lang, Lucks — *Turning Hash-Based Signatures into Distributed Signatures and Threshold Signatures* (2024)  
 > https://cic.iacr.org/p/2/2/24/pdf
 
-The project implements the full signing stack: Winternitz OTS, a Merkle tree for stateful signing, and a k-of-k distributed signing protocol where multiple trustees cooperate to produce a single verifiable Lamport signature without any trustee ever holding the complete private key.
+The project implements the core Full Project PRF-based distributed signing scheme, including Winternitz OTS, Merkle-tree based stateful signing, CRV correction values, and a two-round distributed signing protocol. Trustees hold local PRF seeds and derive signing shares on demand, while the aggregator reconstructs a single verifiable Winternitz/Lamport signature.
 
 ---
 
@@ -33,15 +33,15 @@ No other dependencies — the implementation uses only the Python standard libra
 │   ├── lamport.py           # Winternitz OTS — Gen, Sign, Verify, WINTER
 │   ├── merkle_tree.py       # Merkle tree — MT_Construct, MT_MakePath, MT_Verify, MT_Extract
 │   ├── stateful_hash.py     # Stateful HBS — StatefulGen, StatefulSign, StatefulVerify
-│   ├── distributed_signing.py  # k-of-k distributed signing — KK_Setup, KK_Aggregator_Sign, KK_Sign1/2
+│   ├── distributed_signing.py # PRF-based distributed signing — KK_SetupContribution, KK_Setup, KK_Aggregator_Sign, KK_Sign1/2
 │   ├── prf_rf_game.py       # PRF/RF distinguishing game — F, PRFRFGame, Init, Query, Final
-│   └── shard_trustee.py     # Shard trustee helpers for threshold signing
+│   └── shard_trustee.py     # Shard/trustee helpers for coalition-based distributed signing
 └── test/
     ├── test_lamport.py          # unit tests for Winternitz OTS
     ├── test_merkle_tree.py      # unit tests for Merkle tree
     ├── test_stateful_hash.py    # unit tests for stateful signing
     ├── test_integration.py      # end-to-end tests: Gen → Sign → Verify
-    └── test_distributed_signing.py  # unit + integration tests for k-of-k protocol
+    └── test_distributed_signing.py  # unit + integration tests for PRF-based distributed signing
 ```
 
 ---
@@ -69,12 +69,23 @@ From the project root:
 python -m pytest test/ -v
 ```
 
-All 66 tests should pass. To run a specific test file:
+All 68 tests should pass. To run a specific test file:
 
 ```bash
 python -m pytest test/test_integration.py -v
 python -m pytest test/test_distributed_signing.py -v
 ```
+
+---
+
+## Running Benchmarks
+
+From the project root:
+
+```bash
+python benchmark.py
+```
+This generates benchmark_results.csv and complexity_comparison.csv.
 
 ---
 
@@ -110,22 +121,26 @@ Combines Lamport OTS with the Merkle tree for multi-message signing:
 - **`StatefulSign(keyID, M)`** — signs `M` using key `keyID`. Each key can only be used once; a second attempt returns `()`.
 - **`StatefulVerify(M, r, path, z)`** — extracts `keyID` from the path, verifies the Winternitz signature, then verifies the Merkle path back to `cpk.ROOT`.
 
-### `distributed_signing.py` — k-of-k Distributed Signing
+### `distributed_signing.py` - PRF-Based Distributed Signing
 
-Implements the KK protocol from §4 of the paper. The aggregator and k trustees cooperate in two rounds to produce a signature without any party learning the combined private key:
+Implements the PRF-based trustee contribution and signing logic.
 
-**Setup:**
-- **`KK_Setup(trustee_seeds, KeyID, SK, R, PATH)`** — given k trustee PRF seeds, computes XOR-secret-shared versions of `R`, `SK`, `PATH`, and per-trustee commitment checks `CHK`. Returns a `CRV` (Common Reference Value).
+**Setup contribution:**
+- **`KK_SetupContribution(seed, KeyID, R, path_lens, sk_shape)`** - computes a trustee's setup contribution from its local PRF seed, including `Rt`, `CHKt`, `Auth`, `PATHt`, and `SKt`.
+
+**Setup aggregation:**
+- **`KK_Setup(trustee_contribs, KeyID, SK, R, PATH)`** - combines trustee setup contributions into a `CRV` (Common Reference Value), containing the correction values needed for distributed signing.
 
 **Signing (2-round protocol):**
-- **Round 1 — `KK_Sign1(t, KeyID, M)`** — trustee `t` derives its mask share `Rt` and commitment `CHKt` from its seed using PRF. Marks `KeyID` as used (one-time).
-- **`KK_GenSig1(Kt, KeyID)`** — computes `Rt = PRF_R(Kt, KeyID)` and `CHKt = PRF_Chk(Kt, KeyID)`.
-- **Round 2 — `KK_Sign2(t, R_prime, CHK_prime)`** — authenticates the aggregated `R` using `KK_Auth`, then computes the trustee's signature share `Zt` and path share.
-- **`KK_GenSig2(Kt, KeyID, h, path_lens)`** — derives SK share and PATH share from seed, runs WINTER.
-- **`KK_Aggregator_Sign(M, CRV, KeyID)`** — orchestrates both rounds across all trustees, XORs the shares to recover the full signature `(R, PATH, Z)`.
+- **`KK_Sign1(t, KeyID, M)`** - trustee `t` derives round-1 values `(Rt, CHKt)` from its local seed.
+- **`KK_Sign2(t, R_prime, CHK_prime)`** - trustee `t` authenticates `R_prime` and produces `(PATHt, Zt)`.
+- **`KK_Aggregator_Sign(M, CRV, KeyID)`** - combines all trustee shares into the final signature `(R, PATH, Z)`.
 
 **Authentication:**
-- **`KK_Auth(Kt, KeyID, R_prime, CHK_prime)`** — checks `PRF_Auth(Kt, KeyID, R_prime) == CHK_prime`. Prevents a malicious aggregator from substituting a different `R`.
+- **`KK_Auth(Kt, KeyID, R_prime, CHK_prime)`** - checks whether the round-2 authentication value is valid.
+
+
+
 
 **PRF labels** (domain-separated via tweak integers):
 
@@ -149,49 +164,96 @@ Implements Algorithm 12 from the paper. The challenger randomly selects between 
 
 ## How Distributed Signing Works
 
-The KK protocol lets k trustees each hold only a PRF seed. No single trustee ever sees `R`, `SK`, or `PATH` in the clear.
+The distributed signing protocol follows the core PRF-based Full Project idea.
 
-1. **Setup**: The aggregator runs `KK_Setup` with k trustee seeds and the actual `(SK, R, PATH)`. It computes XOR shares: for each trustee `t`, the CRV stores `R ⊕ R_1 ⊕ ... ⊕ R_k` (so the trustees' shares cancel), and per-trustee authentication tags `CHK[t] = Auth_t ⊕ CHK_1 ⊕ ... ⊕ CHK_k`.
+1. **Local trustee seeds**: Each trustee holds its own PRF seed locally.
 
-2. **Round 1**: Each trustee derives `(Rt, CHKt)` from its seed and sends them to the aggregator. The aggregator XORs to recover `R` and per-trustee `CHK`.
+2. **Setup contributions**: During setup, the setup server obtains trustee setup contributions through a contribution provider. Each contribution is generated from the trustee's local seed and contains the masked values needed to construct the common reference value (`CRV`).
 
-3. **Round 2**: The aggregator sends each trustee `(R, CHK[t])`. Each trustee authenticates `R` using `PRF_Auth`, then computes its signature share and path share. The aggregator XORs all shares against the CRV values to get the final `(R, PATH, Z)`.
+3. **CRV generation**: The setup server combines trustee contributions with the real `(SK, R, PATH)` values to produce correction values stored in the `CRV`.
 
-4. **Verify**: The resulting signature verifies with standard `Lamport.Verify`, producing the same public key as `Gen(KeyID)`.
+4. **Round 1**: Each trustee derives `(Rt, CHKt)` locally from its PRF seed and sends them to the aggregator.
+
+5. **Round 2**: After reconstructing `R` and the trustee-specific authentication value, the aggregator asks each trustee to authenticate `R` and generate its signature share `(PATHt, Zt)`.
+
+6. **Final reconstruction**: The aggregator XOR-combines the trustee shares with the `CRV` to reconstruct the final signature `(R, PATH, Z)`.
+
 
 ---
 
 ## Example Usage
 
 ```python
-from lamport import Gen, Verify
-from distributed_signing import KK_Setup, KK_Aggregator_Sign
-import distributed_signing as ds
 import os
+import distributed_signing as ds
+import shard_trustee as st
 from utils import N_BYTES
 
-# Generate a key pair
-key_id = 0
-pk, sk = Gen(key_id)
+# Number of one-time signing keys / Merkle leaves
+# D must be a power of two.
+d = 4
 
-# Two trustees, each with a random PRF seed
-seeds = {1: os.urandom(N_BYTES), 2: os.urandom(N_BYTES)}
-r = os.urandom(N_BYTES)
-path = [os.urandom(N_BYTES), key_id]  # path nodes + key_id at end
+# Number of trustees
+n = 2
 
-# Setup
-crv = KK_Setup(seeds, key_id, sk, r, path)
+# Coalition list: each KeyID is assigned to a signing coalition.
+cl = [
+    [1, 2],
+    [1, 2],
+    [1, 2],
+    [1, 2],
+]
 
-# Populate trustee state (aggregator does this after distributing seeds)
-for t, seed in seeds.items():
-    ds.K[t] = seed
-    ds.trustee_path_lens[t] = {key_id: crv.path_lens}
+# Each trustee independently holds its own PRF seed.
+# These seeds are not generated or returned by ShardSetup.
+trustee_seeds = {
+    t: os.urandom(N_BYTES)
+    for t in range(1, n + 1)
+}
 
-# Sign
+
+def contribution_provider(t, key_id, r, path_lens, sk_shape):
+    """
+    Simulates trustee-side PRF setup contribution generation.
+    The setup receives contributions, not trustee seeds.
+    """
+    return ds.KK_SetupContribution(
+        trustee_seeds[t],
+        key_id,
+        r,
+        path_lens,
+        sk_shape,
+    )
+
+
+# Setup: generate public key, CRV correction values, and trustee metadata.
+cpk, crvs, trustee_init = st.ShardSetup(
+    d,
+    n,
+    cl,
+    contribution_provider,
+)
+
+# Initialise each trustee with its own local PRF seed and metadata.
+for t, init in trustee_init.items():
+    st.TrusteeSetup(
+        t,
+        trustee_seeds[t],
+        init["allowed_keyids"],
+        init["path_lens"],
+    )
+
+# Sign a message using KeyID 0.
 message = b"hello distributed world"
-r_out, path_out, z = KK_Aggregator_Sign(message, crv, key_id)
+key_id = 0
 
-# Verify — must recover pk
-assert Verify(r_out, z, message, key_id) == pk
+signature = st.AggregatorSign(message, crvs, key_id)
+assert signature is not None
+
+r, path, z = signature
+
+# Verify the reconstructed distributed signature.
+assert st.AggregatorVerify(message, r, path, z) is True
+
 print("Signature verified!")
 ```
