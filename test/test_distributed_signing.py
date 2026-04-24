@@ -35,10 +35,19 @@ def _random_seeds(k: int) -> dict:
     return {t + 1: os.urandom(N_BYTES) for t in range(k)}
 
 
+def _make_contribs(seeds: dict, key_id: int, r: bytes, path, sk):
+    # Compute each trustee's KK_SetupContribution from their seed
+    path_lens = [len(node) for node in path[:-1]]
+    sk_shape = (len(sk), len(sk[0]))
+    return {t: ds.KK_SetupContribution(seed, key_id, r, path_lens, sk_shape)
+            for t, seed in seeds.items()}
+
+
 def _full_setup(seeds: dict, key_id: int, sk, path):
-    # Call KK_Setup then populate ds.K and ds.trustee_path_lens so signing works
+    # Call KK_SetupContribution then KK_Setup, then populate ds.K and ds.trustee_path_lens
     r = os.urandom(N_BYTES)
-    crv = ds.KK_Setup(seeds, key_id, sk, r, path)
+    contribs = _make_contribs(seeds, key_id, r, path, sk)
+    crv = ds.KK_Setup(contribs, key_id, sk, r, path)
     for t, seed in seeds.items():
         ds.K[t] = seed
         if t not in ds.trustee_path_lens:
@@ -54,7 +63,8 @@ def test_kk_setup_returns_crv_and_populates_k():
     r = os.urandom(N_BYTES)
     path = [os.urandom(N_BYTES), 0]
 
-    crv = ds.KK_Setup(seeds, 0, sk, r, path)
+    contribs = _make_contribs(seeds, 0, r, path, sk)
+    crv = ds.KK_Setup(contribs, 0, sk, r, path)
 
     assert crv.R is not None and len(crv.R) == N_BYTES
     assert crv.CHK is not None
@@ -69,7 +79,8 @@ def test_kk_setup_accepts_r_as_int():
     r_int = int.from_bytes(os.urandom(N_BYTES), "big")
     path = [1]
 
-    crv = ds.KK_Setup(seeds, 1, sk, r_int, path)
+    contribs = _make_contribs(seeds, 1, r_int, path, sk)
+    crv = ds.KK_Setup(contribs, 1, sk, r_int, path)
 
     assert isinstance(crv.R, bytes)
     assert len(crv.R) == N_BYTES
@@ -77,15 +88,12 @@ def test_kk_setup_accepts_r_as_int():
 
 def test_kk_gensig1_returns_stored_masks():
     # KK_GenSig1 for a seed returns Rt and CHKt derived via PRF_R and PRF_Chk.
-    _, sk = Gen(0)
-    seeds = _random_seeds(1)
-    r = os.urandom(N_BYTES)
-    ds.KK_Setup(seeds, 0, sk, r, [0])
-    ds.K[1] = seeds[1]
+    seed = os.urandom(N_BYTES)
+    key_id = 0
 
-    rt, chkt = ds.KK_GenSig1(ds.K[1], 0)
-    assert rt == ds.PRF_R(seeds[1], 0, N_BYTES)
-    assert chkt == ds.PRF_Chk(seeds[1], 0, N_BYTES)
+    rt, chkt = ds.KK_GenSig1(seed, key_id)
+    assert rt == ds.PRF_R(seed, key_id, N_BYTES)
+    assert chkt == ds.PRF_Chk(seed, key_id, N_BYTES)
 
 
 @pytest.mark.parametrize("k", [1, 2, 3])
@@ -214,13 +222,15 @@ def test_kk_setup_seed_mode_is_deterministic_for_same_inputs():
     r = os.urandom(N_BYTES)
     path = [os.urandom(N_BYTES), 5]
 
-    crv1 = ds.KK_Setup(seeds, 5, sk, r, path)
+    contribs1 = _make_contribs(seeds, 5, r, path, sk)
+    crv1 = ds.KK_Setup(contribs1, 5, sk, r, path)
 
     ds.K = {}
     ds.used_keys = {}
     ds.current = {}
 
-    crv2 = ds.KK_Setup(seeds, 5, sk, r, path)
+    contribs2 = _make_contribs(seeds, 5, r, path, sk)
+    crv2 = ds.KK_Setup(contribs2, 5, sk, r, path)
 
     assert crv1.R == crv2.R
     assert crv1.CHK == crv2.CHK
