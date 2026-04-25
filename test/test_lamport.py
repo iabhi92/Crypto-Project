@@ -1,7 +1,7 @@
 import pytest
 import os
 
-from lamport import Gen, Sign, Verify, WINTER, A, C, N_BYTES, CHAIN_LEN
+from lamport import Gen, Sign, Verify, WINTER, GenLazy, SignLazy, WINTERLazy, A, C, N_BYTES, CHAIN_LEN
 
 
 def test_gen_basic():
@@ -77,3 +77,36 @@ def test_sign_verify_different_keyids(kid):
     r = os.urandom(N_BYTES)
     r_out, z = Sign(b"hello", r, kid, sk)
     assert(Verify(r_out, z, b"hello", kid) == pk)
+
+
+def test_genlazy_pk_matches_gen():
+    # seeds-only path, PK should match
+    pk, seeds = GenLazy(0)
+    assert isinstance(pk, bytes) and len(pk) == N_BYTES
+    assert len(seeds) == A + C
+    assert all(len(s) == N_BYTES for s in seeds)
+
+def test_signlazy_verifies():
+    pk, seeds = GenLazy(0)
+    r = os.urandom(N_BYTES)
+    r_out, z = SignLazy(b"hello lazy", r, 0, seeds)
+    assert Verify(r_out, z, b"hello lazy", 0) == pk
+
+def test_signlazy_wrong_message_fails():
+    pk, seeds = GenLazy(1)
+    r = os.urandom(N_BYTES)
+    r_out, z = SignLazy(b"real", r, 1, seeds)
+    assert Verify(r_out, z, b"tampered", 1) != pk
+
+def test_winterlazy_matches_winter():
+    _, sk = Gen(0)
+    _, seeds = GenLazy(0)
+    h = os.urandom(N_BYTES)
+    z_eager = WINTER(h, sk)
+    z_lazy  = WINTERLazy(h, seeds, 0)
+    # different keys so outputs differ, but length must match
+    assert len(z_lazy) == len(z_eager) == A + C
+
+def test_signlazy_without_seeds_raises():
+    with pytest.raises((ValueError, TypeError)):
+        SignLazy(b"msg", os.urandom(N_BYTES), 0)

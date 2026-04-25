@@ -1,36 +1,48 @@
 Scheme,Operation,Parameter,Runs,Average time (ms),Std ms
-Lamport/Winternitz,Gen,-,3,7.683367,0.203075
-Lamport/Winternitz,Sign,-,30,0.006,0.000774
-Lamport/Winternitz,Verify,-,30,4.527083,0.120003
-Merkle Tree,MT_Construct,D=8,3,0.0226,0.000608
-Merkle Tree,MT_MakePath,D=8,3,0.023833,0.00171
-Merkle Tree,MT_Verify,D=8,30,0.006403,0.000499
-Merkle Tree,MT_Construct,D=16,3,0.044333,0.000231
-Merkle Tree,MT_MakePath,D=16,3,0.045567,0.001069
-Merkle Tree,MT_Verify,D=16,30,0.0088,0.002265
-Merkle Tree,MT_Construct,D=32,3,0.087833,0.000321
-Merkle Tree,MT_MakePath,D=32,3,0.090767,0.003239
-Merkle Tree,MT_Verify,D=32,30,0.009313,0.000363
-Stateful HBS,StatefulGen,D=8,3,62.232533,0.50051
-Stateful HBS,StatefulGen,D=16,3,122.521267,0.458553
-Stateful HBS,StatefulGen,D=32,3,245.493567,2.214273
-Stateful HBS,StatefulSign,D=128,30,1.091097,0.097826
-Stateful HBS,StatefulVerify,D=128,30,3.98446,0.475768
-PRF Distributed HBS,ShardSetup+TrusteeSetup,"D=8,k=2",3,357.101933,3.372099
-PRF Distributed HBS,ShardSetup+TrusteeSetup,"D=16,k=2",3,731.7957,34.740718
-PRF Distributed HBS,ShardSetup+TrusteeSetup,"D=32,k=2",3,1441.272533,14.30016
-PRF Distributed HBS,AggregatorSign,"D=8,k=2",8,18.170925,0.430718
-PRF Distributed HBS,AggregatorVerify,"D=8,k=2",30,3.90832,0.540569
-PRF Distributed HBS,AggregatorSign,"D=16,k=2",16,18.295419,0.435369
-PRF Distributed HBS,AggregatorVerify,"D=16,k=2",30,3.871377,0.372137
-PRF Distributed HBS,AggregatorSign,"D=32,k=2",30,19.69115,2.038561
-PRF Distributed HBS,AggregatorVerify,"D=32,k=2",30,4.217397,0.638079
-PRF Distributed HBS,ShardSetup+TrusteeSetup,"D=8,k=3",3,510.2894,3.200089
-PRF Distributed HBS,ShardSetup+TrusteeSetup,"D=16,k=3",3,999.086,12.599548
-PRF Distributed HBS,ShardSetup+TrusteeSetup,"D=32,k=3",3,1980.974567,15.780955
-PRF Distributed HBS,AggregatorSign,"D=8,k=3",8,27.082262,0.155684
-PRF Distributed HBS,AggregatorVerify,"D=8,k=3",30,3.73027,0.442115
-PRF Distributed HBS,AggregatorSign,"D=16,k=3",16,28.775956,2.571421
-PRF Distributed HBS,AggregatorVerify,"D=16,k=3",30,4.066717,0.492371
-PRF Distributed HBS,AggregatorSign,"D=32,k=3",30,27.764943,0.932924
-PRF Distributed HBS,AggregatorVerify,"D=32,k=3",30,4.083477,0.415565
+Lamport/Winternitz,Gen,-,3,4.060889,0.197405
+Lamport/Winternitz,Sign,-,30,0.002785,0.000644
+Lamport/Winternitz,Verify,-,30,2.339996,0.188028
+Merkle Tree,MT_Construct,D=8,3,0.012208,0.001252
+Merkle Tree,MT_MakePath,D=8,3,0.012361,0.001071
+Merkle Tree,MT_Verify,D=8,30,0.003272,0.000464
+Merkle Tree,MT_Construct,D=16,3,0.020973,0.000173
+Merkle Tree,MT_MakePath,D=16,3,0.021458,0.001014
+Merkle Tree,MT_Verify,D=16,30,0.00373,0.000167
+Merkle Tree,MT_Construct,D=32,3,0.041736,0.000205
+Merkle Tree,MT_MakePath,D=32,3,0.042514,0.00071
+Merkle Tree,MT_Verify,D=32,30,0.004543,0.000195
+Stateful HBS,StatefulGen,D=8,3,30.400319,1.406214
+Stateful HBS,StatefulGen,D=16,3,62.279291,2.365853
+Stateful HBS,StatefulGen,D=32,3,121.726958,5.417809
+Stateful HBS,StatefulSign,D=128,30,0.485547,0.254278
+Stateful HBS,StatefulVerify,D=128,30,1.844926,0.203196
+PRF Distributed HBS,ShardSetup+TrusteeSetup,"D=8,k=2",3,133.589472,7.533655
+PRF Distributed HBS,ShardSetup+TrusteeSetup,"D=16,k=2",3,274.610778,12.131086
+PRF Distributed HBS,ShardSetup+TrusteeSetup,"D=32,k=2",3,519.482347,2.016189
+PRF Distributed HBS,AggregatorSign,"D=8,k=2",8,8.220484,0.114796
+PRF Distributed HBS,AggregatorVerify,"D=8,k=2",30,2.011921,0.213461
+PRF Distributed HBS,AggregatorSign,"D=16,k=2",16,8.346833,0.367301
+PRF Distributed HBS,AggregatorVerify,"D=16,k=2",30,1.888572,0.262419
+PRF Distributed HBS,AggregatorSign,"D=32,k=2",30,8.136246,0.093609
+PRF Distributed HBS,AggregatorVerify,"D=32,k=2",30,1.927738,0.311355
+PRF Distributed HBS,ShardSetup+TrusteeSetup,"D=8,k=3",3,169.824792,0.133145
+PRF Distributed HBS,ShardSetup+TrusteeSetup,"D=16,k=3",3,341.655514,2.342636
+PRF Distributed HBS,ShardSetup+TrusteeSetup,"D=32,k=3",3,682.677945,2.215441
+PRF Distributed HBS,AggregatorSign,"D=8,k=3",8,12.177969,0.164462
+PRF Distributed HBS,AggregatorVerify,"D=8,k=3",30,1.953913,0.168809
+PRF Distributed HBS,AggregatorSign,"D=16,k=3",16,12.09107,0.183391
+PRF Distributed HBS,AggregatorVerify,"D=16,k=3",30,1.802517,0.244327
+PRF Distributed HBS,AggregatorSign,"D=32,k=3",30,12.140847,0.105924
+PRF Distributed HBS,AggregatorVerify,"D=32,k=3",30,1.964353,0.246606
+Lazy chain opt,"Gen  (eager, full chains)",-,3,3.628972,0.015021
+Lazy chain opt,"Sign (eager, lookup)",-,30,0.002631,0.000618
+Lazy chain opt,"Gen  (lazy,  seeds only)",-,3,3.531097,0.013808
+Lazy chain opt,"Sign (lazy,  recompute)",-,30,1.999632,0.010164
+Winternitz W=1,Gen sig=2160B,sk=4320B,3,0.260389,0.017944
+Winternitz W=2,Gen sig=1088B,sk=4352B,3,0.233444,0.002233
+Winternitz W=4,Gen sig=560B,sk=8960B,3,0.458667,0.002126
+Winternitz W=8,Gen sig=288B,sk=73728B,3,3.707959,0.014795
+Hash backend (sha256),Gen,-,3,3.698319,0.012967
+Hash backend (blake2b),Gen,-,3,3.136236,0.00761
+XOR optimisation,byte loop,10x16B,20000,0.00649,-
+XOR optimisation,int XOR (applied),10x16B,20000,0.001098,5.9x faster

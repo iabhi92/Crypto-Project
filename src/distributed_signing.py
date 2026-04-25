@@ -1,12 +1,8 @@
 from hash import hash_lms
-from utils import N, N_BYTES, CRV, A, C, CHAIN_LEN
+from utils import N_BYTES, CRV, A, C, CHAIN_LEN
 from lamport import WINTER
 
-
-# minimal project K[t][KeyID]={ "Rt":"","CHKt":"","Expect_CHK":"","PATHt":"","SKt":""}
-# full project stores only trustee PRF seeds:
-# K[t] = seed
-# Rt, CHKt, PATHt, and SKt are generated on the fly using PRF calls.
+# global state per trustee
 K = {}
 used_keys = {}
 current = {}
@@ -25,93 +21,59 @@ def _to_n_bytes(v):
     return bytes(v)
 
 
-def _xor_bytes(left: bytes, right: bytes) -> bytes:
-    # int XOR is faster than a byte-by-byte loop in Python
-    n = len(left)
-    return (int.from_bytes(left, 'big') ^ int.from_bytes(right, 'big')).to_bytes(n, 'big')
-
-
-def _xor_many(values: list[bytes]) -> bytes:
+def _xor_many(values):
+    # int XOR is ~6x faster than byte-by-byte in CPython
     if not values:
         return b""
     n = len(values[0])
-    # accumulate with integer XOR — avoids per-byte Python overhead
-    acc = int.from_bytes(values[0], 'big')
+    acc = int.from_bytes(values[0], "big")
     for v in values[1:]:
         if len(v) != n:
-            raise ValueError("Cannot XOR byte strings with different lengths")
-        acc ^= int.from_bytes(v, 'big')
-    return acc.to_bytes(n, 'big')
+            raise ValueError("length mismatch")
+        acc ^= int.from_bytes(v, "big")
+    return acc.to_bytes(n, "big")
 
 
-def _serialize_len(n: int) -> bytes:
-    return n.to_bytes(4, "big")
+def PRF_R(seed, key_id, out_len):
+    return hash_lms(PRF_R_TWEAK + (key_id,), seed, out_len.to_bytes(4, "big"))[:out_len]
 
 
-def PRF_R(seed: bytes, key_id: int, out_len: int) -> bytes:
-    return hash_lms(PRF_R_TWEAK + (key_id,), seed, _serialize_len(out_len))[:out_len]
+def PRF_Chk(seed, key_id, out_len):
+    return hash_lms(PRF_CHK_TWEAK + (key_id,), seed, out_len.to_bytes(4, "big"))[:out_len]
 
 
-def PRF_Chk(seed: bytes, key_id: int, out_len: int) -> bytes:
-    return hash_lms(PRF_CHK_TWEAK + (key_id,), seed, _serialize_len(out_len))[:out_len]
-
-
-def PRF_Auth(seed: bytes, key_id: int, r) -> bytes:
+def PRF_Auth(seed, key_id, r):
     if isinstance(r, int):
         r = r.to_bytes(N_BYTES, "big")
     r = bytes(r)
     return hash_lms(PRF_AUTH_TWEAK + (key_id,), seed, r)[:N_BYTES]
 
 
-def PRF_Path(seed: bytes, key_id: int, node_idx: int, out_len: int) -> bytes:
-    return hash_lms(PRF_PATH_TWEAK + (key_id, node_idx), seed, _serialize_len(out_len))[:out_len]
+def PRF_Path(seed, key_id, node_idx, out_len):
+    return hash_lms(PRF_PATH_TWEAK + (key_id, node_idx), seed, out_len.to_bytes(4, "big"))[:out_len]
 
 
-def PRF_Chain(seed: bytes, key_id: int, i: int, j: int, out_len: int) -> bytes:
-    return hash_lms(PRF_CHAIN_TWEAK + (key_id, i, j), seed, _serialize_len(out_len))[:out_len]
+def PRF_Chain(seed, key_id, i, j, out_len):
+    return hash_lms(PRF_CHAIN_TWEAK + (key_id, i, j), seed, out_len.to_bytes(4, "big"))[:out_len]
 
 
-# def _is_seed_mode(sk_shares) -> bool:
-#     return bool(sk_shares) and isinstance(sk_shares[0], (bytes, bytearray))
-
-
-def KK_SetupContribution(
-    seed: bytes,
-    KeyID: int,
-    R,
-    path_lens: list[int],
-    sk_shape: tuple[int, int],
-) -> dict:
+def KK_SetupContribution(seed, KeyID, R, path_lens, sk_shape):
     if isinstance(R, int):
         R = R.to_bytes(N_BYTES, "big")
     R = bytes(R)
     rows, cols = sk_shape
     return {
-        "Rt": PRF_R(seed, KeyID, N_BYTES),
-        "CHKt": PRF_Chk(seed, KeyID, N_BYTES),
-        "Auth": PRF_Auth(seed, KeyID, R),
-        "PATHt": [
-            PRF_Path(seed, KeyID, node_idx, node_len)
-            for node_idx, node_len in enumerate(path_lens)
-        ],
-        "SKt": [
-            [
-                PRF_Chain(seed, KeyID, i, j, N_BYTES)
-                for j in range(cols)
-            ]
-            for i in range(rows)
-        ],
+        "Rt":    PRF_R(seed, KeyID, N_BYTES),
+        "CHKt":  PRF_Chk(seed, KeyID, N_BYTES),
+        "Auth":  PRF_Auth(seed, KeyID, R),
+        "PATHt": [PRF_Path(seed, KeyID, idx, node_len) for idx, node_len in enumerate(path_lens)],
+        "SKt":   [[PRF_Chain(seed, KeyID, i, j, N_BYTES) for j in range(cols)] for i in range(rows)],
     }
 
 
-def KK_Setup(
-    trustee_contribs: dict[int, dict],
-    KeyID: int,
-    SK,
-    R: bytes,
-    PATH,
-) -> CRV:
+def KK_Setup(trustee_contribs, KeyID, SK, R, PATH):
     crv = CRV()
+    crv.key_id = KeyID
 
     if isinstance(R, int):
         R = R.to_bytes(N_BYTES, "big")
@@ -121,133 +83,77 @@ def KK_Setup(
     path_keyid = PATH[-1]
     path_lens = [len(node) for node in path_nodes]
 
-    trustee_ids = sorted(trustee_contribs.keys())
+    trustees = sorted(trustee_contribs.keys())
 
-    Rt_list = {t: trustee_contribs[t]["Rt"] for t in trustee_ids}
-    CHKt_list = {t: trustee_contribs[t]["CHKt"] for t in trustee_ids}
-    Auth_list = {t: trustee_contribs[t]["Auth"] for t in trustee_ids}
-    PATHt_list = {t: trustee_contribs[t]["PATHt"] for t in trustee_ids}
-    SKt_list = {t: trustee_contribs[t]["SKt"] for t in trustee_ids}
+    crv.R = _xor_many([R] + [trustee_contribs[t]["Rt"] for t in trustees])
 
-    # CRV.R = real R xor all trustee Rt
-    crv.R = _xor_many([R] + [Rt_list[t] for t in trustee_ids])
-
-    # CRV.CHK[target] = Auth[target] xor all CHKt
     crv.CHK = {}
-    for target_t in trustee_ids:
-        crv.CHK[target_t] = _xor_many(
-            [Auth_list[target_t]] + [CHKt_list[t] for t in trustee_ids]
+    for t in trustees:
+        crv.CHK[t] = _xor_many(
+            [trustee_contribs[t]["Auth"]] + [trustee_contribs[s]["CHKt"] for s in trustees]
         )
 
-    # CRV.PATH = real PATH xor all trustee PATHt
-    crv_path_nodes = []
-    for node_idx, node in enumerate(path_nodes):
-        value = bytearray(node)
-        for t in trustee_ids:
-            share = PATHt_list[t][node_idx]
-            for x in range(len(value)):
-                value[x] ^= share[x]
-        crv_path_nodes.append(bytes(value))
+    crv.PATH = [
+        _xor_many([node] + [trustee_contribs[t]["PATHt"][idx] for t in trustees])
+        for idx, node in enumerate(path_nodes)
+    ] + [path_keyid]
 
-    crv.PATH = crv_path_nodes + [path_keyid]
+    crv.SK = [
+        [
+            _xor_many([_to_n_bytes(SK[i][j])] + [_to_n_bytes(trustee_contribs[t]["SKt"][i][j]) for t in trustees])
+            for j in range(len(SK[i]))
+        ]
+        for i in range(len(SK))
+    ]
 
-    # CRV.SK = real SK xor all trustee SKt
-    crv_SK = []
-    for i in range(len(SK)):
-        row = []
-        for j in range(len(SK[i])):
-            value = bytearray(_to_n_bytes(SK[i][j]))
-            for t in trustee_ids:
-                share = _to_n_bytes(SKt_list[t][i][j])
-                for x in range(len(value)):
-                    value[x] ^= share[x]
-            row.append(bytes(value))
-        crv_SK.append(row)
-    crv.SK = crv_SK
-    crv.k = len(trustee_ids)
-    crv.trustees = trustee_ids
+    crv.k = len(trustees)
+    crv.trustees = trustees
     crv.path_lens = path_lens
     return crv
 
 
-def KK_Aggregator_Sign(M, CRV, KeyID: int):
+def KK_Aggregator_Sign(M, CRV, KeyID):
     trustees = getattr(CRV, "trustees", sorted(CRV.CHK.keys()))
-    # round 1
-    Rt_values = {}
-    CHKt_values = {}
+
+    round1 = {}
     for t in trustees:
         result = KK_Sign1(t, KeyID, M)
         if result is None:
             return None
-        Rt_values[t], CHKt_values[t] = result
+        round1[t] = result
 
-    R = bytearray(CRV.R)
+    R = _xor_many([CRV.R] + [round1[t][0] for t in trustees])
+
+    chk_per_trustee = {
+        t: _xor_many([CRV.CHK[t]] + [round1[s][1] for s in trustees])
+        for t in trustees
+    }
+
+    round2 = {}
     for t in trustees:
-        for i in range(len(R)):
-            R[i] ^= Rt_values[t][i]
-    R = bytes(R)
-
-    CHK_values = {}
-
-    for target_t in trustees:
-        chk = bytearray(CRV.CHK[target_t])
-        for t in trustees:
-            for i in range(len(chk)):
-                chk[i] ^= CHKt_values[t][i]
-        CHK_values[target_t] = bytes(chk)
-
-    # Round 2
-    Zt_values = {}
-    path_shares = {}
-    for t in trustees:
-        result = KK_Sign2(t, R, CHK_values[t])
+        result = KK_Sign2(t, R, chk_per_trustee[t])
         if result is None:
             return None
-        path_t, Zt = result
-        path_shares[t] = [_to_n_bytes(node) for node in path_t]
-        Zt_values[t] = Zt
+        round2[t] = result
 
     h = hash_lms((1, KeyID), R, M)
-    CRVt = WINTER(h, CRV.SK)
-    Z = []
-    for i in range(len(CRVt)):
-        if isinstance(CRVt[i], int):
-            value = bytearray(CRVt[i].to_bytes(N_BYTES, "big"))
-        else:
-            value = bytearray(CRVt[i])
-        for t in trustees:
-            share = Zt_values[t][i]
-            if isinstance(share, int):
-                share = share.to_bytes(N_BYTES, "big")
-            for j in range(len(value)):
-                value[j] ^= share[j]
-        Z.append(bytes(value))
-    crv_path_nodes = CRV.PATH[:-1]
-    path_keyid = CRV.PATH[-1]
-    PATH = []
-    for idx, node in enumerate(crv_path_nodes):
-        value = bytearray(node)
-        for t in trustees:
-            share = path_shares[t][idx]
-            for j in range(len(value)):
-                value[j] ^= share[j]
-        PATH.append(bytes(value))
-    PATH.append(path_keyid)
+    crv_z = WINTER(h, CRV.SK)
+
+    Z = [
+        _xor_many([_to_n_bytes(crv_z[i])] + [_to_n_bytes(round2[t][1][i]) for t in trustees])
+        for i in range(len(crv_z))
+    ]
+
+    path_nodes = CRV.PATH[:-1]
+    PATH = [
+        _xor_many([bytes(node)] + [_to_n_bytes(round2[t][0][idx]) for t in trustees])
+        for idx, node in enumerate(path_nodes)
+    ] + [CRV.PATH[-1]]
+
     return R, PATH, Z
 
 
-# def KK_Sign1(t, KeyID: int, M):
-#     if t not in K:
-#         return None
-#     if KeyID not in K[t]:
-#         return None
-#     if KeyID in used_keys[t]:
-#         return None
-#     current[t] = (KeyID, M)
-#     used_keys[t].add(KeyID)
-#     Kt=K[t][KeyID]["Kt"]
-#     return KK_GenSig1(Kt, KeyID)
-def KK_Sign1(t, KeyID: int, M):
+def KK_Sign1(t, KeyID, M):
     if t not in K:
         return None
     if t not in used_keys:
@@ -259,7 +165,7 @@ def KK_Sign1(t, KeyID: int, M):
     return KK_GenSig1(K[t], KeyID)
 
 
-def KK_GenSig1(Kt: bytes, KeyID: int):
+def KK_GenSig1(Kt, KeyID):
     Rt = PRF_R(Kt, KeyID, N_BYTES)
     CHKt = PRF_Chk(Kt, KeyID, N_BYTES)
     return Rt, CHKt
@@ -272,9 +178,7 @@ def KK_Sign2(t, R_Prime, CHK_Prime):
     current[t] = None
     if t not in K:
         return None
-    if t not in trustee_path_lens:
-        return None
-    if KeyID not in trustee_path_lens[t]:
+    if t not in trustee_path_lens or KeyID not in trustee_path_lens[t]:
         return None
     if KK_Auth(K[t], KeyID, R_Prime, CHK_Prime):
         h = hash_lms((1, KeyID), R_Prime, M)
@@ -282,32 +186,17 @@ def KK_Sign2(t, R_Prime, CHK_Prime):
     return None
 
 
-# def KK_GenSig2(Kt, KeyID: int, h):
-#     PATHt = Kt[KeyID]["PATHt"]
-#     SKt = Kt[KeyID]["SKt"]
-#     Zt = WINTER(h, SKt)
-#     return PATHt, Zt
-def KK_GenSig2(Kt: bytes, KeyID: int, h, path_lens):
-    SK_share = []
-
-    for i in range(A + C):
-        row = []
-        for j in range(CHAIN_LEN):
-            row.append(PRF_Chain(Kt, KeyID, i, j, N_BYTES))
-        SK_share.append(row)
-    Zt = WINTER(h, SK_share)
-    PATHt = [
-        PRF_Path(Kt, KeyID, node_idx, node_len)
-        for node_idx, node_len in enumerate(path_lens)
+def KK_GenSig2(Kt, KeyID, h, path_lens):
+    SK_share = [
+        [PRF_Chain(Kt, KeyID, i, j, N_BYTES) for j in range(CHAIN_LEN)]
+        for i in range(A + C)
     ]
+    Zt = WINTER(h, SK_share)
+    PATHt = [PRF_Path(Kt, KeyID, idx, node_len) for idx, node_len in enumerate(path_lens)]
     return PATHt, Zt
 
 
-# minimal project
-# def KK_Auth(KeyID: int, R_Prime, CHK_Prime):
-#     expectCHK = hash_lms((20, KeyID), R_Prime)
-#     return CHK_Prime == expectCHK
-def KK_Auth(Kt: bytes, KeyID: int, R_Prime: bytes, CHK_Prime: bytes):
+def KK_Auth(Kt, KeyID, R_Prime, CHK_Prime):
     if isinstance(R_Prime, int):
         R_Prime = R_Prime.to_bytes(N_BYTES, "big")
     return PRF_Auth(Kt, KeyID, R_Prime) == CHK_Prime

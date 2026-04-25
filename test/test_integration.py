@@ -39,7 +39,6 @@ def _setup(d, n, cl):
     return cpk, crvs
 
 
-# basic sign and verify works end to end
 def test_sign_and_verify():
     d, n = 2, 2
     cl = [[1, 2], [1, 2]]
@@ -49,7 +48,6 @@ def test_sign_and_verify():
     assert st.AggregatorVerify(b"hello world", r, path, z) == True
 
 
-# if we verify with a different message it should fail
 def test_wrong_message_fails():
     d, n = 2, 2
     cl = [[1, 2], [1, 2]]
@@ -59,7 +57,6 @@ def test_wrong_message_fails():
     assert st.AggregatorVerify(b"wrong message", r, path, z) == False
 
 
-# every keyID in the tree should be signable once
 def test_all_keyids_can_sign():
     d, n = 4, 3
     cl = [[1, 2, 3]] * d
@@ -72,7 +69,6 @@ def test_all_keyids_can_sign():
         assert st.AggregatorVerify(b"test message", r, path, z) == True
 
 
-# signatures for different keyIDs should be different
 def test_signatures_are_unique():
     d, n = 2, 2
     cl = [[1, 2], [1, 2]]
@@ -84,7 +80,6 @@ def test_signatures_are_unique():
     assert z0 != z1
 
 
-# tamper with the z values and verify should fail
 def test_tampered_z_fails():
     d, n = 2, 2
     cl = [[1, 2], [1, 2]]
@@ -95,7 +90,6 @@ def test_tampered_z_fails():
     assert st.AggregatorVerify(b"hello", r, path, bad_z) == False
 
 
-# if r is wrong the hash won't match so verify should fail
 def test_wrong_r_fails():
     d, n = 2, 2
     cl = [[1, 2], [1, 2]]
@@ -106,7 +100,6 @@ def test_wrong_r_fails():
     assert st.AggregatorVerify(b"hello", wrong_r, path, z) == False
 
 
-# reusing the same keyID a second time should return None (one-time key)
 def test_cannot_reuse_keyid():
     d, n = 2, 2
     cl = [[1, 2], [1, 2]]
@@ -116,7 +109,6 @@ def test_cannot_reuse_keyid():
     assert st.AggregatorSign(b"second", crvs, 0) is None
 
 
-# a bad CHK value in round 2 should cause the aggregator to abort
 def test_bad_chk_aborts_signing():
     d, n = 2, 2
     cl = [[1, 2], [1, 2]]
@@ -127,7 +119,6 @@ def test_bad_chk_aborts_signing():
     assert st.AggregatorSign(b"msg", crvs, 0) is None
 
 
-# with a single trustee the protocol should still work
 def test_single_trustee():
     d, n = 2, 1
     cl = [[1], [1]]
@@ -137,7 +128,6 @@ def test_single_trustee():
     assert st.AggregatorVerify(b"solo trustee", r, path, z) == True
 
 
-# out of range keyID should return None
 def test_invalid_keyid_returns_none():
     d, n = 2, 2
     cl = [[1, 2], [1, 2]]

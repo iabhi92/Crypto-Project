@@ -1,10 +1,3 @@
-# Tests for the distributed Lamport signing module (`distributed_signing`).
-#
-# Covers KK-style setup (trustee shares, commitment randomness), round-1 mask
-# retrieval, trustee signing rounds, aggregation into a verifiable Lamport
-# signature, and authentication helpers. The autouse fixture clears module-level
-# state between tests so `ds.K` and related globals do not leak across cases.
-
 import os
 import random
 
@@ -18,7 +11,6 @@ from utils import N_BYTES
 
 @pytest.fixture(autouse=True)
 def reset_distributed_signing_globals():
-    # Clear `distributed_signing` global maps before and after every test.
     ds.K = {}
     ds.used_keys = {}
     ds.current = {}
@@ -30,21 +22,18 @@ def reset_distributed_signing_globals():
     ds.trustee_path_lens = {}
 
 
-def _random_seeds(k: int) -> dict:
-    # Return a dict of k random trustee seeds {1: bytes, 2: bytes, ...}
+def _random_seeds(k):
     return {t + 1: os.urandom(N_BYTES) for t in range(k)}
 
 
-def _make_contribs(seeds: dict, key_id: int, r: bytes, path, sk):
-    # Compute each trustee's KK_SetupContribution from their seed
+def _make_contribs(seeds, key_id, r, path, sk):
     path_lens = [len(node) for node in path[:-1]]
     sk_shape = (len(sk), len(sk[0]))
     return {t: ds.KK_SetupContribution(seed, key_id, r, path_lens, sk_shape)
             for t, seed in seeds.items()}
 
 
-def _full_setup(seeds: dict, key_id: int, sk, path):
-    # Call KK_SetupContribution then KK_Setup, then populate ds.K and ds.trustee_path_lens
+def _full_setup(seeds, key_id, sk, path):
     r = os.urandom(N_BYTES)
     contribs = _make_contribs(seeds, key_id, r, path, sk)
     crv = ds.KK_Setup(contribs, key_id, sk, r, path)
@@ -57,7 +46,6 @@ def _full_setup(seeds: dict, key_id: int, sk, path):
 
 
 def test_kk_setup_returns_crv_and_populates_k():
-    # KK_Setup builds a CRV with R, CHK, PATH, SK fields set correctly.
     _, sk = Gen(0)
     seeds = _random_seeds(2)
     r = os.urandom(N_BYTES)
@@ -73,7 +61,7 @@ def test_kk_setup_returns_crv_and_populates_k():
 
 
 def test_kk_setup_accepts_r_as_int():
-    # Randomness r may be passed as a big-endian integer; setup must normalize it to exactly N_BYTES of secret randomness in `crv.R`.
+    # r can be an int
     _, sk = Gen(1)
     seeds = _random_seeds(1)
     r_int = int.from_bytes(os.urandom(N_BYTES), "big")
@@ -87,7 +75,6 @@ def test_kk_setup_accepts_r_as_int():
 
 
 def test_kk_gensig1_returns_stored_masks():
-    # KK_GenSig1 for a seed returns Rt and CHKt derived via PRF_R and PRF_Chk.
     seed = os.urandom(N_BYTES)
     key_id = 0
 
@@ -97,8 +84,7 @@ def test_kk_gensig1_returns_stored_masks():
 
 
 @pytest.mark.parametrize("k", [1, 2, 3])
-def test_aggregator_sign_verifies_with_lamport(k: int):
-    # End-to-end: for k trustees, KK_Aggregator_Sign produces (r, path, z) that Lamport Verify accepts for the signed message and returns the public key.
+def test_aggregator_sign_verifies_with_lamport(k):
     key_id = 7
     pk, sk = Gen(key_id)
     seeds = _random_seeds(k)
@@ -114,7 +100,6 @@ def test_aggregator_sign_verifies_with_lamport(k: int):
 
 
 def test_aggregator_sign_fails_verify_on_wrong_message():
-    # A signature produced for one message must not verify when Verify is called with a different message (integrity).
     pk, sk = Gen(0)
     seeds = _random_seeds(2)
     crv = _full_setup(seeds, 0, sk, [0])
@@ -124,12 +109,10 @@ def test_aggregator_sign_fails_verify_on_wrong_message():
 
 
 def test_kk_sign1_returns_none_for_unknown_trustee():
-    # KK_Sign1 with a trustee index that was never set up (no row in `ds.K`) must return None.
     assert ds.KK_Sign1(99, 0, b"msg") is None
 
 
 def test_kk_sign1_returns_none_for_missing_key_id():
-    # KK_Sign1 must return None when the key_id has already been used (replay guard).
     _, sk = Gen(0)
     seeds = _random_seeds(1)
     _full_setup(seeds, 0, sk, [0])
@@ -140,7 +123,6 @@ def test_kk_sign1_returns_none_for_missing_key_id():
 
 
 def test_kk_sign1_cannot_reuse_same_key_for_trustee():
-    # One-time use: after a successful KK_Sign1 for (trustee, key_id), a second Sign1 for the same pair must return None (replay / double-sign guard).
     _, sk = Gen(0)
     seeds = _random_seeds(1)
     _full_setup(seeds, 0, sk, [0])
@@ -150,7 +132,6 @@ def test_kk_sign1_cannot_reuse_same_key_for_trustee():
 
 
 def test_kk_sign2_returns_none_without_prior_sign1():
-    # KK_Sign2 must not proceed if round 1 was skipped: no partial state for that trustee implies None.
     _, sk = Gen(0)
     seeds = _random_seeds(1)
     crv = _full_setup(seeds, 0, sk, [0])
@@ -159,7 +140,6 @@ def test_kk_sign2_returns_none_without_prior_sign1():
 
 
 def test_kk_sign2_returns_none_when_auth_fails():
-    # After Sign1, KK_Sign2 with a CHK that does not authenticate against the stored commitment must return None.
     _, sk = Gen(0)
     seeds = _random_seeds(1)
     crv = _full_setup(seeds, 0, sk, [0])
@@ -170,7 +150,6 @@ def test_kk_sign2_returns_none_when_auth_fails():
 
 
 def test_aggregator_sign_returns_none_when_round2_auth_fails():
-    # If CRV.CHK is corrupted so round-2 auth cannot succeed, the aggregator must abort and return None instead of a signature.
     _, sk = Gen(0)
     seeds = _random_seeds(1)
     crv = _full_setup(seeds, 0, sk, [0])
@@ -180,7 +159,6 @@ def test_aggregator_sign_returns_none_when_round2_auth_fails():
 
 
 def test_kk_auth_true_for_expected_pair():
-    # KK_Auth returns True when CHK equals PRF_Auth(Kt, key_id, r_prime).
     seed = os.urandom(N_BYTES)
     key_id = 3
     r_prime = os.urandom(N_BYTES)
@@ -189,7 +167,6 @@ def test_kk_auth_true_for_expected_pair():
 
 
 def test_kk_auth_false_for_mismatched_chk():
-    # KK_Auth returns False when CHK was built from different randomness than r_prime (forged or mismatched commitment).
     seed = os.urandom(N_BYTES)
     key_id = 2
     r_prime = os.urandom(N_BYTES)
@@ -274,7 +251,7 @@ def test_f_label_domain_separates():
     assert F(k, x, label=b"A") != F(k, x, label=b"B")
 
 
-def _game_with_b(b: int) -> PRFRFGame:
+def _game_with_b(b):
     for seed in range(500):
         g = PRFRFGame()
         g.init(random.Random(seed))
