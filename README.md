@@ -1,5 +1,7 @@
 # Distributed Hash-Based Signatures
 
+![tests](https://github.com/iabhi92/Crypto-Project/actions/workflows/tests.yml/badge.svg)
+
 Based on Kelsey, Lang, and Lucks (2024):
 
 > *Turning Hash-Based Signatures into Distributed Signatures and Threshold Signatures*  
