@@ -1,564 +1,876 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Distributed Hash-Based Signatures</title>
-<meta name="description" content="Python implementation of distributed hash-based threshold signatures based on Kelsey, Lang & Lucks (2024)." />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<title>Distributed Hash-Based Threshold Signatures</title>
+<meta name="description" content="No single trustee holds the full key. Quantum-resistant distributed signing via PRF shares — implementation of Kelsey, Lang & Lucks (2024)." />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
 :root{
-  --bg:#0A0D14; --surface:#121826; --surface-2:#0E1320;
-  --ink:#E8EDF4; --muted:#94A1B5; --faint:#5C6678;
-  --line:#1E2636; --line-strong:#2B3447;
-  --violet:#A78BFA; --violet-ink:#C4B2FF; --violet-dim:color-mix(in srgb,var(--violet) 14%,transparent);
-  --defend:#2FE3B0; --defend-ink:#74F0D0;
-  --attack:#FF5F4E; --attack-ink:#FF8A7C;
-  --amber:#FFA63D; --gold:#F2C94C;
-  --on-accent:#06231B;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 14px 40px rgba(0,0,0,.45);
-  --radius:14px;
+  --bg:#060912;--s1:#0C1220;--s2:#0F1628;--glass:rgba(12,18,32,.85);
+  --ink:#EAF0FF;--muted:#6880A8;--faint:#2E4060;
+  --ln:#162035;--ln2:#1E3050;
+  --c:#00E5FF;--cd:rgba(0,229,255,.08);--cg:rgba(0,229,255,.25);
+  --g:#00FFA3;--gd:rgba(0,255,163,.08);--gg:rgba(0,255,163,.25);
+  --p:#A855F7;--pd:rgba(168,85,247,.08);--pg:rgba(168,85,247,.25);
+  --a:#FFB800;--ad:rgba(255,184,0,.08);
+  --r:#FF4466;--rad:rgba(14px);
+  --rad:14px;
 }
-[data-theme="light"]{
-  --bg:#F4F6F9; --surface:#FFFFFF; --surface-2:#F9FAFC;
-  --ink:#121723; --muted:#56627A; --faint:#8A94A6;
-  --line:#E6E9EF; --line-strong:#D3D9E2;
-  --violet:#6D4DE0; --violet-ink:#5B3CC9; --violet-dim:color-mix(in srgb,var(--violet) 10%,transparent);
-  --defend:#0E9C77; --defend-ink:#0B7E60;
-  --attack:#E5483B; --attack-ink:#C5392E;
-  --shadow:0 1px 2px rgba(20,23,30,.04),0 10px 30px rgba(20,23,30,.07);
-}
-*{box-sizing:border-box;}
+*{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;transition:background .4s,color .4s;
-  background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:26px 26px;background-position:-13px -13px;}
+body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+.mono{font-family:'JetBrains Mono',monospace;}
 a{color:inherit;text-decoration:none;}
-::selection{background:var(--violet);color:#fff;}
-.wrap{max-width:1020px;margin:0 auto;padding:0 24px;}
-:focus-visible{outline:2px solid var(--violet);outline-offset:2px;border-radius:6px;}
+::selection{background:var(--c);color:#000;}
 
 /* NAV */
-header.bar{position:sticky;top:0;z-index:50;backdrop-filter:saturate(140%) blur(12px);background:color-mix(in srgb,var(--bg) 80%,transparent);border-bottom:1px solid var(--line);}
-.bar-inner{display:flex;align-items:center;justify-content:space-between;height:64px;}
-.logomark{font-family:"JetBrains Mono",monospace;font-weight:700;font-size:.95rem;letter-spacing:-.02em;display:flex;align-items:center;gap:9px;}
-.logomark .dot{width:8px;height:8px;border-radius:50%;background:var(--violet);box-shadow:0 0 0 3px color-mix(in srgb,var(--violet) 20%,transparent),0 0 12px var(--violet);}
-.logomark .sl{color:var(--faint);}
-.bar-right{display:flex;align-items:center;gap:8px;}
-.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer;transition:.2s;}
-.icon-btn:hover{color:var(--ink);border-color:var(--line-strong);}
-.btn{font-family:"JetBrains Mono",monospace;font-size:.82rem;padding:9px 16px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);transition:.18s;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;}
-.btn:hover{border-color:var(--ink);}
-.btn.primary{background:var(--violet);color:#fff;border-color:var(--violet);font-weight:700;}
-.btn.primary:hover{filter:brightness(1.1);}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;backdrop-filter:blur(20px) saturate(150%);background:rgba(6,9,18,.7);border-bottom:1px solid var(--ln);}
+.nav-inner{max-width:1100px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;}
+.nav-logo{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.9rem;display:flex;align-items:center;gap:10px;}
+.nav-logo .ring{width:10px;height:10px;border-radius:50%;border:2px solid var(--c);box-shadow:0 0 8px var(--c);animation:pulse-ring 2s ease-in-out infinite;}
+@keyframes pulse-ring{0%,100%{box-shadow:0 0 6px var(--c);}50%{box-shadow:0 0 14px var(--c),0 0 28px var(--cg);}}
+.nav-links{display:flex;align-items:center;gap:6px;}
+.nav-links a,.nav-btn{font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:7px 14px;border-radius:8px;border:1px solid var(--ln2);color:var(--muted);cursor:pointer;transition:.15s;background:transparent;}
+.nav-links a:hover,.nav-btn:hover{color:var(--ink);border-color:var(--muted);}
+.nav-btn.primary{background:var(--c);color:#000;border-color:var(--c);font-weight:700;}
+.nav-btn.primary:hover{filter:brightness(1.1);}
 
 /* HERO */
-.hero{padding:64px 0 40px;}
-.eyebrow{font-family:"JetBrains Mono",monospace;font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;color:var(--violet-ink);display:flex;align-items:center;gap:11px;margin-bottom:20px;}
-.eyebrow::before{content:"";width:26px;height:1px;background:var(--violet);}
-h1{font-family:"Space Grotesk",sans-serif;font-weight:700;font-size:clamp(2rem,5vw,3.2rem);line-height:1.05;letter-spacing:-.035em;margin:0 0 18px;max-width:22ch;}
-h1 .v{color:var(--violet);}
-.lede{font-size:1.08rem;color:var(--muted);max-width:52ch;margin:0 0 28px;}
-.hero-stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:36px;}
-.stat{font-family:"JetBrains Mono",monospace;font-size:.78rem;padding:7px 14px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--muted);}
-.stat .v{color:var(--violet-ink);font-weight:700;}
-.paper-ref{font-family:"JetBrains Mono",monospace;font-size:.78rem;color:var(--faint);border:1px dashed var(--line-strong);border-radius:10px;padding:12px 16px;margin-bottom:0;display:inline-flex;align-items:flex-start;gap:10px;max-width:600px;}
-.paper-ref .label{color:var(--violet-ink);white-space:nowrap;}
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden;padding:100px 24px 60px;}
+#hero-canvas{position:absolute;inset:0;opacity:.45;}
+.hero-inner{max-width:1100px;margin:0 auto;width:100%;position:relative;z-index:1;}
+.hero-tag{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--c);display:flex;align-items:center;gap:12px;margin-bottom:22px;}
+.hero-tag::before{content:'';width:28px;height:1px;background:var(--c);}
+h1{font-family:'Space Grotesk',sans-serif;font-size:clamp(2.4rem,5.5vw,4rem);font-weight:700;line-height:1.02;letter-spacing:-.04em;margin-bottom:22px;max-width:18ch;}
+h1 .c{color:var(--c);} h1 .g{color:var(--g);} h1 .p{color:var(--p);}
+.hero-sub{font-size:1.1rem;color:var(--muted);max-width:52ch;margin-bottom:36px;line-height:1.7;}
+.hero-stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:40px;}
+.hstat{font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:8px 14px;border-radius:10px;border:1px solid var(--ln2);background:var(--s1);color:var(--muted);display:flex;align-items:center;gap:8px;}
+.hstat .v{font-weight:700;}
+.hstat.c .v{color:var(--c);}
+.hstat.g .v{color:var(--g);}
+.hstat.p .v{color:var(--p);}
+.hstat.a .v{color:var(--a);}
+.hero-cta{display:flex;gap:12px;flex-wrap:wrap;}
+.btn{font-family:'JetBrains Mono',monospace;font-size:.84rem;padding:12px 22px;border-radius:10px;border:1px solid var(--ln2);background:var(--s1);color:var(--ink);cursor:pointer;transition:.18s;display:inline-flex;align-items:center;gap:8px;}
+.btn:hover{border-color:var(--ink);}
+.btn.primary{background:var(--c);color:#000;border-color:var(--c);font-weight:700;}
+.btn.primary:hover{filter:brightness(1.08);}
+.btn.outline-c{border-color:var(--c);color:var(--c);}
+.btn.outline-c:hover{background:var(--cd);}
 
-/* SECTION */
-section{padding:44px 0;}
-.sec-head{border-top:1px solid var(--line);padding-top:30px;margin-bottom:24px;}
-.sec-head .eb{font-family:"JetBrains Mono",monospace;font-size:.72rem;letter-spacing:.13em;text-transform:uppercase;color:var(--violet-ink);margin-bottom:9px;}
-.sec-head h2{font-family:"Space Grotesk",sans-serif;font-size:1.55rem;letter-spacing:-.025em;margin:0;}
+/* WRAP */
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px;}
+section{padding:80px 0;}
+.sec-tag{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;color:var(--c);margin-bottom:10px;}
+.sec-tag.g{color:var(--g);}
+.sec-tag.p{color:var(--p);}
+.sec-tag.a{color:var(--a);}
+h2{font-family:'Space Grotesk',sans-serif;font-size:clamp(1.6rem,3vw,2.2rem);font-weight:700;letter-spacing:-.03em;margin-bottom:10px;}
+.sec-sub{color:var(--muted);font-size:.97rem;max-width:54ch;margin-bottom:36px;}
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--ln2),transparent);margin:0 0 80px;}
 
-/* LAYER STACK */
-.stack{display:flex;flex-direction:column;gap:0;max-width:640px;}
-.layer{border:1px solid var(--line);border-radius:var(--radius);padding:16px 20px;background:var(--surface);box-shadow:var(--shadow);display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;position:relative;}
-.layer+.layer{margin-top:8px;}
-.layer::before{content:"";position:absolute;left:50%;top:-8px;width:2px;height:8px;background:var(--line);}
-.layer:first-child::before{display:none;}
-.layer .l-name{font-family:"Space Grotesk",sans-serif;font-size:1.02rem;font-weight:600;margin:0 0 3px;}
-.layer .l-desc{font-size:.85rem;color:var(--muted);margin:0;}
-.layer-badge{font-family:"JetBrains Mono",monospace;font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;padding:3px 9px;border-radius:6px;white-space:nowrap;}
-.lb-top{background:color-mix(in srgb,var(--violet) 15%,transparent);color:var(--violet-ink);}
-.lb-mid{background:color-mix(in srgb,var(--defend) 12%,transparent);color:var(--defend-ink);}
-.lb-base{background:color-mix(in srgb,var(--amber) 12%,transparent);color:var(--amber);}
-.lb-prim{background:color-mix(in srgb,var(--faint) 20%,transparent);color:var(--muted);}
+/* ═══════════════════════════════════ PROTOCOL SIM */
+.sim-container{background:var(--s1);border:1px solid var(--ln2);border-radius:20px;overflow:hidden;box-shadow:0 0 60px rgba(0,229,255,.04);}
+.sim-top{display:grid;grid-template-columns:1fr 1fr 1fr;min-height:320px;position:relative;}
+.sim-node{padding:28px 22px;display:flex;flex-direction:column;gap:12px;position:relative;}
+.sim-node.t1{border-right:1px solid var(--ln);}
+.sim-node.t2{border-left:1px solid var(--ln);}
+.node-header{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+.node-dot{width:9px;height:9px;border-radius:50%;}
+.t1 .node-dot{background:var(--c);box-shadow:0 0 8px var(--c);}
+.t2 .node-dot{background:var(--g);box-shadow:0 0 8px var(--g);}
+.agg .node-dot{background:var(--p);box-shadow:0 0 8px var(--p);}
+.node-title{font-family:'JetBrains Mono',monospace;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;}
+.t1 .node-title{color:var(--c);}
+.t2 .node-title{color:var(--g);}
+.agg .node-title{color:var(--p);}
+.node-seed{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--faint);background:var(--s2);border:1px solid var(--ln);border-radius:8px;padding:8px 10px;word-break:break-all;line-height:1.6;}
+.node-seed .label{color:var(--muted);display:block;margin-bottom:3px;}
+.node-output{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);background:var(--s2);border:1px solid var(--ln);border-radius:8px;padding:8px 10px;word-break:break-all;line-height:1.6;min-height:54px;transition:border-color .3s;}
+.node-output .label{font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;display:block;}
+.node-output.active-c{border-color:var(--c);color:var(--c);}
+.node-output.active-g{border-color:var(--g);color:var(--g);}
+.node-output.active-p{border-color:var(--p);color:var(--p);}
+.node-output.active-a{border-color:var(--a);color:var(--a);}
 
-/* PARAMS TABLE */
-.params-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
-.param-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);}
-.param-card .pv{font-family:"JetBrains Mono",monospace;font-size:1.6rem;font-weight:700;color:var(--violet-ink);line-height:1;margin-bottom:4px;}
-.param-card .pk{font-family:"JetBrains Mono",monospace;font-size:.72rem;color:var(--faint);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
-.param-card .pd{font-size:.83rem;color:var(--muted);}
+/* center aggregator */
+.agg{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:28px 16px;text-align:center;}
+.agg-body{width:100%;display:flex;flex-direction:column;gap:10px;align-items:center;}
+.xor-box{font-family:'JetBrains Mono',monospace;font-size:1.8rem;color:var(--p);opacity:0;transition:opacity .4s;margin:4px 0;}
+.xor-result{font-family:'JetBrains Mono',monospace;font-size:.66rem;word-break:break-all;line-height:1.7;color:var(--a);background:var(--s2);border:1px solid var(--ln);border-radius:8px;padding:8px 10px;width:100%;text-align:left;min-height:54px;transition:border-color .3s;}
+.xor-result.show{border-color:var(--a);}
+.xor-result .label{font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:3px;display:block;}
+.sig-box{font-family:'JetBrains Mono',monospace;font-size:.64rem;word-break:break-all;line-height:1.7;color:var(--g);background:var(--s2);border:1px solid var(--ln);border-radius:8px;padding:8px 10px;width:100%;text-align:left;min-height:40px;transition:border-color .3s;}
+.sig-box.show{border-color:var(--g);}
+.sig-box .label{font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:3px;display:block;}
 
-/* BENCHMARKS */
-.bench-group{margin-bottom:28px;}
-.bench-group-title{font-family:"JetBrains Mono",monospace;font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-bottom:12px;display:flex;align-items:center;gap:10px;}
-.bench-group-title::after{content:"";flex:1;height:1px;background:var(--line);}
-.bench-row{display:grid;grid-template-columns:200px 1fr 90px;gap:12px;align-items:center;margin-bottom:8px;}
-.bench-label{font-size:.87rem;color:var(--muted);}
-.bench-label .param{font-family:"JetBrains Mono",monospace;font-size:.72rem;color:var(--faint);}
-.bar-track{background:var(--surface-2);border-radius:6px;height:8px;overflow:hidden;}
-.bar-fill{height:100%;border-radius:6px;background:var(--violet);transition:width .6s ease;}
-.bar-fill.green{background:var(--defend);}
-.bar-fill.amber{background:var(--amber);}
-.bench-val{font-family:"JetBrains Mono",monospace;font-size:.78rem;color:var(--ink);text-align:right;}
+/* arrows overlay */
+.sim-arrows{position:absolute;inset:0;pointer-events:none;}
+.arrow-line{position:absolute;height:2px;background:linear-gradient(90deg,var(--c),var(--p));top:50%;opacity:0;transition:opacity .3s;}
+.arrow-line.t2{background:linear-gradient(90deg,var(--p),var(--g));}
+.arrow-line.show{opacity:1;}
+.data-packet{position:absolute;width:8px;height:8px;border-radius:50%;top:50%;margin-top:-4px;}
+.data-packet.p1{background:var(--c);box-shadow:0 0 10px var(--c);}
+.data-packet.p2{background:var(--g);box-shadow:0 0 10px var(--g);}
 
-/* OPTIMISATIONS */
-.opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
-.opt{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
-.opt::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--violet);}
-.opt .num{font-family:"JetBrains Mono",monospace;font-size:.7rem;color:var(--violet-ink);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
-.opt h3{font-family:"Space Grotesk",sans-serif;font-size:1.05rem;font-weight:600;margin:0 0 8px;}
-.opt p{font-size:.87rem;color:var(--muted);margin:0 0 14px;}
-.speedup{display:inline-flex;align-items:center;gap:6px;font-family:"JetBrains Mono",monospace;font-size:.8rem;font-weight:700;color:var(--defend-ink);background:color-mix(in srgb,var(--defend) 12%,transparent);padding:5px 10px;border-radius:7px;}
+/* log + controls */
+.sim-bottom{border-top:1px solid var(--ln);display:grid;grid-template-columns:1fr auto;gap:0;}
+.sim-log{padding:18px 22px;font-family:'JetBrains Mono',monospace;font-size:.75rem;line-height:2;min-height:130px;max-height:130px;overflow-y:auto;border-right:1px solid var(--ln);}
+.log-line{display:flex;gap:10px;align-items:flex-start;}
+.log-line .ts{color:var(--faint);white-space:nowrap;}
+.log-line .msg{color:var(--muted);}
+.log-line .msg .c{color:var(--c);}
+.log-line .msg .g{color:var(--g);}
+.log-line .msg .p{color:var(--p);}
+.log-line .msg .a{color:var(--a);}
+.log-line .msg .ok{color:var(--g);font-weight:700;}
+.sim-controls{padding:18px 22px;display:flex;flex-direction:column;gap:10px;justify-content:center;min-width:180px;}
+.sim-step-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--faint);text-align:center;}
+.sim-progress{display:flex;gap:5px;justify-content:center;}
+.sim-dot{width:6px;height:6px;border-radius:50%;background:var(--faint);transition:.3s;}
+.sim-dot.done{background:var(--c);}
+.sim-dot.active{background:var(--c);box-shadow:0 0 8px var(--c);}
 
-/* COMPLEXITY */
-.complexity-table{width:100%;border-collapse:collapse;font-size:.88rem;}
-.complexity-table th{font-family:"JetBrains Mono",monospace;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);text-align:left;padding:8px 14px;border-bottom:1px solid var(--line);}
-.complexity-table td{padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top;}
-.complexity-table tr:last-child td{border-bottom:none;}
-.complexity-table tr:hover td{background:var(--surface);}
-.complexity-table .scheme{font-weight:600;color:var(--ink);}
-.complexity-table .op{font-family:"JetBrains Mono",monospace;font-size:.8rem;color:var(--muted);}
-.complexity-table .big-o{font-family:"JetBrains Mono",monospace;font-size:.8rem;color:var(--violet-ink);}
-.complexity-table .note{font-size:.82rem;color:var(--faint);}
+/* ═══════════════════════════════════ CHAIN EXPLORER */
+.chain-explorer{background:var(--s1);border:1px solid var(--ln2);border-radius:20px;overflow:hidden;}
+.chain-top{padding:28px 28px 0;display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;}
+.chain-input-group{display:flex;flex-direction:column;gap:6px;}
+.chain-input-group label{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--faint);text-transform:uppercase;letter-spacing:.08em;}
+.chain-input{font-family:'JetBrains Mono',monospace;font-size:.8rem;background:var(--s2);border:1px solid var(--ln2);border-radius:8px;padding:9px 14px;color:var(--ink);width:220px;outline:none;transition:.2s;}
+.chain-input:focus{border-color:var(--c);}
+.chain-stage{padding:28px;overflow-x:auto;}
+.chain-scroll{display:flex;align-items:center;gap:0;min-width:max-content;}
+.chain-node{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.chain-cell{width:52px;height:52px;border-radius:10px;border:1px solid var(--ln2);background:var(--s2);display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--muted);transition:all .2s;position:relative;cursor:pointer;word-break:break-all;padding:4px;text-align:center;}
+.chain-cell:hover{border-color:var(--c);color:var(--c);}
+.chain-cell.seed{border-color:var(--a);color:var(--a);background:var(--ad);}
+.chain-cell.pk{border-color:var(--g);color:var(--g);background:var(--gd);}
+.chain-cell.sign-pos{border-color:var(--c);color:var(--c);background:var(--cd);box-shadow:0 0 12px var(--cg);}
+.chain-cell.filled{border-color:var(--ln2);color:var(--faint);}
+.chain-label{font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--faint);}
+.chain-arrow{width:20px;height:2px;background:var(--ln2);flex-shrink:0;position:relative;}
+.chain-arrow::after{content:'▶';position:absolute;right:-5px;top:50%;transform:translateY(-50%);font-size:.5rem;color:var(--faint);}
+.chain-step-info{padding:0 28px 22px;font-family:'JetBrains Mono',monospace;font-size:.76rem;color:var(--muted);display:flex;gap:24px;flex-wrap:wrap;}
+.step-info-item .key{color:var(--faint);margin-right:6px;}
+.step-info-item .val{color:var(--c);}
+.step-info-item .val.g{color:var(--g);}
+.step-info-item .val.a{color:var(--a);}
 
-/* CODE */
-.code-block{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--violet);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
-.code-head{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);font-family:"JetBrains Mono",monospace;font-size:.74rem;color:var(--faint);}
-.code-head .lang{color:var(--violet-ink);}
-.code-block pre{margin:0;padding:18px;font-family:"JetBrains Mono",monospace;font-size:.82rem;line-height:1.7;overflow-x:auto;color:var(--muted);}
-.code-block .kw{color:var(--violet-ink);}
-.code-block .cm{color:var(--faint);}
-.code-block .st{color:var(--defend-ink);}
-.code-block .fn{color:var(--ink);}
-.code-block .num{color:var(--amber);}
+/* ═══════════════════════════════════ BENCHMARKS */
+.bench-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+.bench-card{background:var(--s1);border:1px solid var(--ln2);border-radius:var(--rad);padding:24px;}
+.bench-card-title{font-family:'JetBrains Mono',monospace;font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+.bench-card-title .dot{width:6px;height:6px;border-radius:50%;}
+.brow{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.brow-label{font-size:.86rem;color:var(--muted);width:170px;flex-shrink:0;}
+.brow-label .sub{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--faint);}
+.brow-bar{flex:1;height:7px;background:var(--s2);border-radius:4px;overflow:hidden;}
+.brow-fill{height:100%;border-radius:4px;width:0;transition:width 1.2s cubic-bezier(.4,0,.2,1);}
+.brow-fill.c{background:linear-gradient(90deg,var(--c),var(--cg));}
+.brow-fill.g{background:linear-gradient(90deg,var(--g),var(--gg));}
+.brow-fill.p{background:linear-gradient(90deg,var(--p),var(--pg));}
+.brow-fill.a{background:linear-gradient(90deg,var(--a),rgba(255,184,0,.3));}
+.brow-val{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--ink);width:60px;text-align:right;flex-shrink:0;}
+.bench-note{font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--faint);margin-top:14px;padding-top:14px;border-top:1px solid var(--ln);}
 
-/* FILE TREE */
-.file-tree{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;font-family:"JetBrains Mono",monospace;font-size:.82rem;line-height:2;box-shadow:var(--shadow);}
-.file-tree .dir{color:var(--violet-ink);}
-.file-tree .file{color:var(--muted);}
-.file-tree .cm{color:var(--faint);}
-.file-tree .indent{padding-left:20px;}
+/* ═══════════════════════════════════ OPTIMISATIONS */
+.opt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+.opt-card{background:var(--s1);border:1px solid var(--ln2);border-radius:var(--rad);overflow:hidden;position:relative;}
+.opt-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--c);}
+.opt-card.g::before{background:var(--g);}
+.opt-card.p::before{background:var(--p);}
+.opt-body{padding:22px 22px 18px;}
+.opt-num{font-family:'JetBrains Mono',monospace;font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:var(--c);margin-bottom:10px;}
+.opt-card.g .opt-num{color:var(--g);}
+.opt-card.p .opt-num{color:var(--p);}
+.opt-title{font-family:'Space Grotesk',sans-serif;font-size:1.06rem;font-weight:600;margin-bottom:8px;}
+.opt-desc{font-size:.85rem;color:var(--muted);line-height:1.6;margin-bottom:16px;}
+.opt-compare{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.opt-col{background:var(--s2);border-radius:10px;padding:12px;}
+.opt-col-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:8px;}
+.opt-timing{font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;}
+.opt-timing.before{color:var(--r);}
+.opt-timing.after{color:var(--g);}
+.opt-timing .unit{font-size:.7rem;font-weight:400;color:var(--muted);}
+.opt-code{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--faint);margin-top:6px;line-height:1.6;}
+.speedup-badge{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:.75rem;font-weight:700;background:var(--gd);color:var(--g);border:1px solid var(--gg);padding:5px 12px;border-radius:7px;margin-top:14px;}
 
-/* FOOTER */
-footer{border-top:1px solid var(--line);padding:26px 0 42px;margin-top:30px;}
-.foot-inner{display:flex;justify-content:space-between;align-items:center;gap:16px;font-family:"JetBrains Mono",monospace;font-size:.77rem;color:var(--faint);}
+/* ═══════════════════════════════════ ARCHITECTURE */
+.arch-stack{display:flex;flex-direction:column;gap:10px;max-width:700px;margin:0 auto;}
+.arch-layer{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:18px;background:var(--s1);border:1px solid var(--ln2);border-radius:var(--rad);padding:18px 22px;position:relative;transition:.2s;}
+.arch-layer:hover{border-color:var(--ln2);transform:translateX(4px);}
+.arch-layer:first-child{border-color:var(--c);background:linear-gradient(135deg,var(--cd),var(--s1));}
+.arch-num{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--faint);width:20px;}
+.arch-content h4{font-family:'Space Grotesk',sans-serif;font-size:1rem;font-weight:600;margin-bottom:3px;}
+.arch-content p{font-size:.83rem;color:var(--muted);}
+.arch-badge{font-family:'JetBrains Mono',monospace;font-size:.63rem;text-transform:uppercase;letter-spacing:.05em;padding:3px 9px;border-radius:6px;white-space:nowrap;}
+.ab-c{background:var(--cd);color:var(--c);border:1px solid var(--cg);}
+.ab-g{background:var(--gd);color:var(--g);border:1px solid var(--gg);}
+.ab-p{background:var(--pd);color:var(--p);border:1px solid var(--pg);}
+.ab-a{background:var(--ad);color:var(--a);}
+.ab-f{background:var(--s2);color:var(--muted);border:1px solid var(--ln2);}
+.arch-connector{display:flex;justify-content:center;align-items:center;height:10px;}
+.arch-connector .line{width:2px;height:10px;background:var(--ln2);}
+
+/* ═══════════════════════════════════ PAPER REF */
+.paper-card{background:var(--s1);border:1px solid var(--ln2);border-radius:var(--rad);padding:24px 28px;display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap;}
+.paper-card .ref{font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--muted);line-height:1.8;}
+.paper-card .ref strong{color:var(--ink);}
+.paper-card .ref .url{color:var(--c);}
+
+/* ═══════════════════════════════════ FOOTER */
+footer{border-top:1px solid var(--ln);padding:28px 0 40px;margin-top:30px;}
+.foot-inner{max-width:1100px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;gap:16px;font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--faint);flex-wrap:wrap;}
 .foot-inner a{color:var(--muted);}
 .foot-inner a:hover{color:var(--ink);}
 
-/* REVEAL */
-.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s,transform .6s;}
+/* ═══════════════════════════════════ SCROLL REVEAL */
+.reveal{opacity:0;transform:translateY(20px);transition:opacity .7s,transform .7s;}
 .reveal.in{opacity:1;transform:none;}
 
-@media(max-width:760px){
-  .params-grid{grid-template-columns:1fr 1fr;}
-  .opts{grid-template-columns:1fr;}
-  .bench-row{grid-template-columns:140px 1fr 70px;}
-  .bench-label .param{display:none;}
-}
-@media(prefers-reduced-motion:reduce){
-  *{transition:none!important;animation:none!important;}
-  .reveal{opacity:1;transform:none;}
+/* ═══════════════════════════════════ SCROLLBAR */
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:var(--s2);}
+::-webkit-scrollbar-thumb{background:var(--ln2);border-radius:3px;}
+
+@media(max-width:840px){
+  .bench-grid{grid-template-columns:1fr;}
+  .opt-grid{grid-template-columns:1fr;}
+  .sim-top{grid-template-columns:1fr;}
+  .sim-node.t1,.sim-node.t2{border-right:none;border-left:none;border-bottom:1px solid var(--ln);}
+  .brow-label{width:120px;}
 }
 </style>
 </head>
 <body>
 
-<header class="bar">
-  <div class="wrap bar-inner">
-    <a href="#" class="logomark"><span class="dot"></span>hash-sig<span class="sl">/dist</span></a>
-    <div class="bar-right">
-      <button class="icon-btn" id="theme" aria-label="Toggle theme" title="Toggle theme">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-      </button>
-      <a class="btn primary" href="https://github.com/iabhi92/crypto-project" target="_blank" rel="noopener">GitHub ↗</a>
+<nav>
+  <div class="nav-inner">
+    <div class="nav-logo"><span class="ring"></span>hash-sig <span style="color:var(--faint)">/</span> dist</div>
+    <div class="nav-links">
+      <a href="#simulator">Simulator</a>
+      <a href="#performance">Perf</a>
+      <a href="#optimisations">Opts</a>
+      <a class="nav-btn primary" href="https://github.com/iabhi92/crypto-project" target="_blank" rel="noopener">GitHub ↗</a>
     </div>
   </div>
-</header>
+</nav>
 
-<main class="wrap">
-
-  <!-- HERO -->
-  <section class="hero">
-    <div class="eyebrow">applied cryptography · 2024</div>
-    <h1>Distributed <span class="v">Hash-Based</span> Threshold Signatures</h1>
-    <p class="lede">No single trustee holds the full key. Signing requires all <em>k</em> trustees to complete a two-round protocol — quantum-resistant, no secret reconstruction, standard verification.</p>
+<!-- HERO -->
+<section class="hero">
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-inner">
+    <div class="hero-tag">Applied Cryptography · Post-Quantum · 2024</div>
+    <h1>No single trustee holds <span class="c">the full</span> <span class="g">key.</span></h1>
+    <p class="hero-sub">Distributed hash-based threshold signatures where signing requires <em>k</em> trustees to complete a two-round PRF protocol — quantum-resistant, no secret reconstruction, standard verification.</p>
     <div class="hero-stats">
-      <span class="stat"><span class="v">128</span> security bits</span>
-      <span class="stat"><span class="v">288 B</span> signature size</span>
-      <span class="stat"><span class="v">73</span> tests passing</span>
-      <span class="stat"><span class="v">5.9×</span> XOR optimisation</span>
-      <span class="stat">Python · stdlib only</span>
+      <div class="hstat c"><span class="v">128</span> security bits</div>
+      <div class="hstat g"><span class="v">288 B</span> signature</div>
+      <div class="hstat p"><span class="v">k-of-n</span> threshold</div>
+      <div class="hstat a"><span class="v">5.9×</span> XOR opt</div>
+      <div class="hstat"><span class="v">73</span> tests passing</div>
+      <div class="hstat">stdlib only · Python 3.10+</div>
     </div>
-    <div class="paper-ref">
-      <span class="label">paper</span>
-      Kelsey, Lang & Lucks (2024) — <em>Turning Hash-Based Signatures into Distributed Signatures and Threshold Signatures</em> · IACR CiC 2/2/24
+    <div class="hero-cta">
+      <a href="#simulator" class="btn primary">▶ Run the protocol</a>
+      <a href="#performance" class="btn outline-c">View benchmarks</a>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- ARCHITECTURE -->
-  <section>
-    <div class="sec-head reveal">
-      <div class="eb">how it's built</div>
-      <h2>Layer architecture</h2>
-    </div>
-    <div class="stack reveal">
-      <div class="layer">
-        <div>
-          <p class="l-name">PRF Distributed HBS</p>
-          <p class="l-desc">Two-round signing protocol. Each trustee contributes a PRF share; the aggregator combines them without learning any individual key.</p>
-        </div>
-        <span class="layer-badge lb-top">top layer</span>
-      </div>
-      <div class="layer">
-        <div>
-          <p class="l-name">Stateful Hash-Based Signatures</p>
-          <p class="l-desc">Manages a Merkle tree of one-time keys, tracks which have been used, and handles authentication paths for the non-distributed baseline.</p>
-        </div>
-        <span class="layer-badge lb-mid">state layer</span>
-      </div>
-      <div class="layer">
-        <div>
-          <p class="l-name">Merkle Tree</p>
-          <p class="l-desc">Commits to the full set of OTS public keys. Construct, path, verify — O(D), O(D + log D), O(log D) respectively.</p>
-        </div>
-        <span class="layer-badge lb-mid">tree layer</span>
-      </div>
-      <div class="layer">
-        <div>
-          <p class="l-name">Winternitz OTS</p>
-          <p class="l-desc">One-time signature built from hash chains. W=8 gives 288 B signatures with 256-step chains. Lazy variant stores only 18-byte seeds.</p>
-        </div>
-        <span class="layer-badge lb-base">OTS layer</span>
-      </div>
-      <div class="layer">
-        <div>
-          <p class="l-name">Tweakable Hash (SHA-256 / BLAKE2b)</p>
-          <p class="l-desc">Swap backends in one line. BLAKE2b gives ~1.18× speedup on short inputs — same security, lower per-call overhead.</p>
-        </div>
-        <span class="layer-badge lb-prim">primitive</span>
-      </div>
-    </div>
-  </section>
+<div class="divider"></div>
 
-  <!-- PARAMS -->
-  <section>
-    <div class="sec-head reveal">
-      <div class="eb">configuration</div>
-      <h2>Parameters</h2>
-    </div>
-    <div class="params-grid reveal">
-      <div class="param-card">
-        <div class="pk">N — security bits</div>
-        <div class="pv">128</div>
-        <div class="pd">16-byte hashes and keys throughout</div>
-      </div>
-      <div class="param-card">
-        <div class="pk">W — Winternitz param</div>
-        <div class="pv">8</div>
-        <div class="pd">Chain length 2⁸ = 256. Shortest sig, slowest keygen</div>
-      </div>
-      <div class="param-card">
-        <div class="pk">Signature size</div>
-        <div class="pv">288 B</div>
-        <div class="pd">18 chain tips × 16 bytes = 288 bytes</div>
-      </div>
-      <div class="param-card">
-        <div class="pk">A — message digits</div>
-        <div class="pv">16</div>
-        <div class="pd">N / W = 128 / 8</div>
-      </div>
-      <div class="param-card">
-        <div class="pk">C — checksum digits</div>
-        <div class="pv">2</div>
-        <div class="pd">Prevents forgery via checksum manipulation</div>
-      </div>
-      <div class="param-card">
-        <div class="pk">Storage (eager vs lazy)</div>
-        <div class="pv">256×</div>
-        <div class="pd">73 728 B full chains → 288 B seeds with lazy eval</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- BENCHMARKS -->
-  <section>
-    <div class="sec-head reveal">
-      <div class="eb">measured performance</div>
-      <h2>Benchmarks</h2>
-    </div>
-    <div class="reveal">
-
-      <div class="bench-group">
-        <div class="bench-group-title">Winternitz OTS</div>
-        <div class="bench-row">
-          <div class="bench-label">Gen <span class="param">(keygen)</span></div>
-          <div class="bar-track"><div class="bar-fill amber" style="width:55%"></div></div>
-          <div class="bench-val">3.43 ms</div>
+<!-- PROTOCOL SIMULATOR -->
+<section id="simulator">
+<div class="wrap">
+  <div class="reveal">
+    <div class="sec-tag">Interactive</div>
+    <h2>Live Protocol Simulator</h2>
+    <p class="sec-sub">Step through the actual two-round signing protocol. Each trustee contributes PRF shares — the aggregator combines them without ever seeing a full key.</p>
+  </div>
+  <div class="sim-container reveal">
+    <div class="sim-top" id="sim-top">
+      <!-- Trustee 1 -->
+      <div class="sim-node t1">
+        <div class="node-header"><div class="node-dot"></div><div class="node-title">Trustee 1</div></div>
+        <div class="node-seed">
+          <span class="label">seed (16 B, secret)</span>
+          a4f2 3b8c 1de7 906a<br>5f2c 44bb 73e1 0d9f
         </div>
-        <div class="bench-row">
-          <div class="bench-label">Sign</div>
-          <div class="bar-track"><div class="bar-fill green" style="width:1%"></div></div>
-          <div class="bench-val">0.003 ms</div>
+        <div class="node-output" id="t1-prf">
+          <span class="label">PRF_R(seed₁, keyID, r)</span>
+          <span class="content" style="color:var(--faint)">waiting...</span>
         </div>
-        <div class="bench-row">
-          <div class="bench-label">Verify</div>
-          <div class="bar-track"><div class="bar-fill" style="width:22%"></div></div>
-          <div class="bench-val">1.42 ms</div>
+        <div class="node-output" id="t1-chain">
+          <span class="label">PRF_Chain contribution</span>
+          <span class="content" style="color:var(--faint)">waiting...</span>
         </div>
       </div>
 
-      <div class="bench-group">
-        <div class="bench-group-title">Stateful HBS</div>
-        <div class="bench-row">
-          <div class="bench-label">StatefulSign <span class="param">D=128</span></div>
-          <div class="bar-track"><div class="bar-fill green" style="width:7%"></div></div>
-          <div class="bench-val">0.44 ms</div>
-        </div>
-        <div class="bench-row">
-          <div class="bench-label">StatefulVerify <span class="param">D=128</span></div>
-          <div class="bar-track"><div class="bar-fill" style="width:26%"></div></div>
-          <div class="bench-val">1.67 ms</div>
-        </div>
-      </div>
-
-      <div class="bench-group">
-        <div class="bench-group-title">PRF Distributed HBS — AggregatorSign</div>
-        <div class="bench-row">
-          <div class="bench-label">k=2 trustees <span class="param">D=8</span></div>
-          <div class="bar-track"><div class="bar-fill" style="width:58%"></div></div>
-          <div class="bench-val">7.28 ms</div>
-        </div>
-        <div class="bench-row">
-          <div class="bench-label">k=2 trustees <span class="param">D=16</span></div>
-          <div class="bar-track"><div class="bar-fill" style="width:59%"></div></div>
-          <div class="bench-val">7.37 ms</div>
-        </div>
-        <div class="bench-row">
-          <div class="bench-label">k=3 trustees <span class="param">D=8</span></div>
-          <div class="bar-track"><div class="bar-fill amber" style="width:88%"></div></div>
-          <div class="bench-val">11.02 ms</div>
-        </div>
-        <div class="bench-row">
-          <div class="bench-label">k=3 trustees <span class="param">D=16</span></div>
-          <div class="bar-track"><div class="bar-fill amber" style="width:89%"></div></div>
-          <div class="bench-val">11.10 ms</div>
+      <!-- Aggregator -->
+      <div class="sim-node agg">
+        <div class="node-header"><div class="node-dot"></div><div class="node-title">Aggregator</div></div>
+        <div class="agg-body">
+          <div class="xor-box" id="xor-sym">⊕</div>
+          <div class="xor-result" id="xor-result">
+            <span class="label">CRV correction value (XOR)</span>
+            <span id="xor-val" style="color:var(--faint)">awaiting contributions...</span>
+          </div>
+          <div class="sig-box" id="sig-box">
+            <span class="label">Signature (288 B)</span>
+            <span id="sig-val" style="color:var(--faint)">not yet generated</span>
+          </div>
+          <div class="node-output" id="verify-box" style="margin-top:4px;">
+            <span class="label">Verification</span>
+            <span id="verify-val" style="color:var(--faint)">pending</span>
+          </div>
         </div>
       </div>
 
-      <div class="bench-group">
-        <div class="bench-group-title">AggregatorVerify</div>
-        <div class="bench-row">
-          <div class="bench-label">k=2 <span class="param">D=8</span></div>
-          <div class="bar-track"><div class="bar-fill green" style="width:24%"></div></div>
-          <div class="bench-val">1.53 ms</div>
+      <!-- Trustee 2 -->
+      <div class="sim-node t2">
+        <div class="node-header"><div class="node-dot"></div><div class="node-title">Trustee 2</div></div>
+        <div class="node-seed">
+          <span class="label">seed (16 B, secret)</span>
+          718e c52a f93d 04b8<br>6c1a e257 9b83 c04e
         </div>
-        <div class="bench-row">
-          <div class="bench-label">k=3 <span class="param">D=8</span></div>
-          <div class="bar-track"><div class="bar-fill green" style="width:26%"></div></div>
-          <div class="bench-val">1.63 ms</div>
+        <div class="node-output" id="t2-prf">
+          <span class="label">PRF_R(seed₂, keyID, r)</span>
+          <span class="content" style="color:var(--faint)">waiting...</span>
+        </div>
+        <div class="node-output" id="t2-chain">
+          <span class="label">PRF_Chain contribution</span>
+          <span class="content" style="color:var(--faint)">waiting...</span>
         </div>
       </div>
-
     </div>
-  </section>
 
-  <!-- OPTIMISATIONS -->
-  <section>
-    <div class="sec-head reveal">
-      <div class="eb">what we measured</div>
-      <h2>Optimisations</h2>
-    </div>
-    <div class="opts reveal">
-      <div class="opt">
-        <div class="num">01 · integer XOR</div>
-        <h3>_xor_many fast path</h3>
-        <p>Replaces byte-by-byte XOR with a single integer operation. <code>int.from_bytes + ^</code> is one C-level call instead of 16 interpreter iterations.</p>
-        <span class="speedup">5.9× faster · 6.46 μs → 1.10 μs</span>
+    <div class="sim-bottom">
+      <div class="sim-log" id="sim-log">
+        <div class="log-line"><span class="ts">[00:00]</span><span class="msg">Protocol ready. <span class="c">k=2 trustees</span>, <span class="p">n=2</span>, D=4 key slots.</span></div>
+        <div class="log-line"><span class="ts">[00:00]</span><span class="msg">Press <span class="a">Next Step</span> to begin the two-round signing protocol.</span></div>
       </div>
-      <div class="opt">
-        <div class="num">02 · hash backend</div>
-        <h3>BLAKE2b vs SHA-256</h3>
-        <p>One-line swap in <code>utils.py</code>. BLAKE2b has lower per-call overhead on short inputs — same 128-bit security target, measurably faster keygen.</p>
-        <span class="speedup">1.18× faster keygen · 3.70 → 3.14 ms</span>
-      </div>
-      <div class="opt">
-        <div class="num">03 · lazy chains</div>
-        <h3>GenLazy / SignLazy</h3>
-        <p>Eager stores 18×256×16 = 73 728 B per key. Lazy stores only 18 seeds (288 B) and recomputes on demand. Right tradeoff for constrained devices.</p>
-        <span class="speedup">256× smaller storage</span>
+      <div class="sim-controls">
+        <div class="sim-progress" id="sim-progress">
+          <div class="sim-dot active"></div>
+          <div class="sim-dot"></div>
+          <div class="sim-dot"></div>
+          <div class="sim-dot"></div>
+          <div class="sim-dot"></div>
+        </div>
+        <div class="sim-step-label" id="sim-step-label">Step 0 / 5</div>
+        <button class="btn primary" id="sim-next" onclick="simNext()">Next Step →</button>
+        <button class="btn" id="sim-reset" onclick="simReset()">↺ Reset</button>
       </div>
     </div>
-  </section>
+  </div>
+</div>
+</section>
 
-  <!-- COMPLEXITY -->
-  <section>
-    <div class="sec-head reveal">
-      <div class="eb">theoretical</div>
-      <h2>Complexity</h2>
-    </div>
-    <div class="reveal" style="overflow-x:auto;">
-      <table class="complexity-table">
-        <thead>
-          <tr>
-            <th>Scheme</th>
-            <th>Operation</th>
-            <th>Complexity</th>
-            <th>Note</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="scheme">Winternitz OTS</td>
-            <td class="op">Gen</td>
-            <td class="big-o">O(A · CHAIN_LEN)</td>
-            <td class="note">Generates all hash chains</td>
-          </tr>
-          <tr>
-            <td class="scheme"></td>
-            <td class="op">Sign</td>
-            <td class="big-o">O(A + C)</td>
-            <td class="note">Baseline one-time signing</td>
-          </tr>
-          <tr>
-            <td class="scheme"></td>
-            <td class="op">Verify</td>
-            <td class="big-o">O((A + C) · CHAIN_LEN)</td>
-            <td class="note">Reconstructs public chain tips</td>
-          </tr>
-          <tr>
-            <td class="scheme">Merkle Tree</td>
-            <td class="op">MT_Construct</td>
-            <td class="big-o">O(D)</td>
-            <td class="note">Builds the full auth tree</td>
-          </tr>
-          <tr>
-            <td class="scheme"></td>
-            <td class="op">MT_MakePath</td>
-            <td class="big-o">O(D + log D)</td>
-            <td class="note">Constructs then extracts path</td>
-          </tr>
-          <tr>
-            <td class="scheme"></td>
-            <td class="op">MT_Verify</td>
-            <td class="big-o">O(log D)</td>
-            <td class="note">Verifies one authentication path</td>
-          </tr>
-          <tr>
-            <td class="scheme">Stateful HBS</td>
-            <td class="op">StatefulSign</td>
-            <td class="big-o">O(OTS sign + log D)</td>
-            <td class="note">Non-distributed baseline</td>
-          </tr>
-          <tr>
-            <td class="scheme">Distributed HBS</td>
-            <td class="op">ShardSetup</td>
-            <td class="big-o">O(D · k · (A+C) · CHAIN_LEN)</td>
-            <td class="note">Collects PRF contributions per trustee</td>
-          </tr>
-          <tr>
-            <td class="scheme"></td>
-            <td class="op">AggregatorSign</td>
-            <td class="big-o">O(k · (A+C) · CHAIN_LEN + k log D)</td>
-            <td class="note">Two-round PRF-based signing</td>
-          </tr>
-          <tr>
-            <td class="scheme"></td>
-            <td class="op">AggregatorVerify</td>
-            <td class="big-o">O(OTS verify + log D)</td>
-            <td class="note">Same target as stateful HBS</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- CODE EXAMPLE -->
-  <section>
-    <div class="sec-head reveal">
-      <div class="eb">quick start</div>
-      <h2>Example</h2>
-    </div>
-    <div class="code-block reveal">
-      <div class="code-head"><span class="lang">python</span><span>end-to-end: setup → sign → verify</span></div>
-      <pre><span class="kw">import</span> os
-<span class="kw">import</span> shard_trustee <span class="kw">as</span> st
-<span class="kw">import</span> distributed_signing <span class="kw">as</span> ds
-<span class="kw">from</span> utils <span class="kw">import</span> N_BYTES
-
-<span class="cm"># D = number of one-time keys, n = trustees, k = required to sign</span>
-D, n, k = <span class="num">4</span>, <span class="num">2</span>, <span class="num">2</span>
-cl = [list(range(<span class="num">1</span>, k + <span class="num">1</span>)) <span class="kw">for</span> _ <span class="kw">in</span> range(D)]
-trustee_seeds = {t: os.urandom(N_BYTES) <span class="kw">for</span> t <span class="kw">in</span> range(<span class="num">1</span>, n + <span class="num">1</span>)}
-
-<span class="kw">def</span> <span class="fn">contribution_provider</span>(t, key_id, r, path_lens, sk_shape):
-    <span class="kw">return</span> ds.KK_SetupContribution(trustee_seeds[t], key_id, r, path_lens, sk_shape)
-
-<span class="cm"># --- Setup ---</span>
-cpk, crvs, trustee_init = st.<span class="fn">ShardSetup</span>(D, n, cl, contribution_provider)
-<span class="kw">for</span> t, info <span class="kw">in</span> trustee_init.items():
-    st.<span class="fn">TrusteeSetup</span>(t, trustee_seeds[t], info[<span class="st">"allowed_keyids"</span>], info[<span class="st">"path_lens"</span>])
-
-<span class="cm"># --- Sign ---</span>
-r, path, z = st.<span class="fn">AggregatorSign</span>(<span class="st">b"hello distributed world"</span>, crvs, keyID=<span class="num">0</span>)
-
-<span class="cm"># --- Verify (same API as non-distributed) ---</span>
-<span class="kw">assert</span> st.<span class="fn">AggregatorVerify</span>(<span class="st">b"hello distributed world"</span>, r, path, z)</pre>
-    </div>
-  </section>
-
-  <!-- FILE LAYOUT -->
-  <section>
-    <div class="sec-head reveal">
-      <div class="eb">codebase</div>
-      <h2>Layout</h2>
-    </div>
-    <div class="file-tree reveal">
-      <div><span class="dir">src/</span></div>
-      <div class="indent">
-        <div><span class="file">utils.py</span>               <span class="cm"># parameters and shared types</span></div>
-        <div><span class="file">hash.py</span>                <span class="cm"># tweakable hash (SHA-256 or BLAKE2b)</span></div>
-        <div><span class="file">lamport.py</span>             <span class="cm"># Winternitz OTS + lazy variant</span></div>
-        <div><span class="file">merkle_tree.py</span>         <span class="cm"># Merkle tree: construct / path / verify</span></div>
-        <div><span class="file">stateful_hash.py</span>       <span class="cm"># stateful signing with one-time key tracking</span></div>
-        <div><span class="file">distributed_signing.py</span> <span class="cm"># KK protocol: PRFs, setup, two-round signing</span></div>
-        <div><span class="file">shard_trustee.py</span>       <span class="cm"># aggregator + trustee API</span></div>
-        <div><span class="file">prf_rf_game.py</span>         <span class="cm"># PRF/RF game (Algorithm 12)</span></div>
-        <div><span class="file">benchmark.py</span>           <span class="cm"># timing benchmarks → CSV output</span></div>
+<!-- WINTERNITZ CHAIN EXPLORER -->
+<section id="chain">
+<div class="wrap">
+  <div class="reveal">
+    <div class="sec-tag g">Interactive</div>
+    <h2>Winternitz Hash Chain</h2>
+    <p class="sec-sub">Each OTS secret key is a chain of 256 hash evaluations. Signing stops at position <code>w_i</code> — verification continues to the tip. Drag the slider to pick a signing position.</p>
+  </div>
+  <div class="chain-explorer reveal">
+    <div class="chain-top">
+      <div class="chain-input-group">
+        <label>Signing position (w_i)</label>
+        <input type="range" min="1" max="20" value="7" class="chain-input" id="chain-pos" style="width:180px;cursor:pointer;" oninput="updateChain()">
       </div>
-      <div style="margin-top:8px;"><span class="dir">test/</span>                    <span class="cm"># 73 tests across 5 suites</span></div>
-      <div class="indent">
-        <div><span class="file">test_lamport.py</span></div>
-        <div><span class="file">test_merkle_tree.py</span></div>
-        <div><span class="file">test_stateful_hash.py</span></div>
-        <div><span class="file">test_integration.py</span></div>
-        <div><span class="file">test_distributed_signing.py</span></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--muted);align-self:flex-end;padding-bottom:6px;">
+        position: <span id="chain-pos-val" style="color:var(--c)">7</span> / 256
+        &nbsp;·&nbsp; remaining to verify: <span id="chain-rem" style="color:var(--g)">249</span> steps
       </div>
     </div>
-  </section>
+    <div class="chain-stage"><div class="chain-scroll" id="chain-scroll"></div></div>
+    <div class="chain-step-info">
+      <span class="step-info-item"><span class="key">W=</span><span class="val">8</span></span>
+      <span class="step-info-item"><span class="key">CHAIN_LEN=</span><span class="val">256</span></span>
+      <span class="step-info-item"><span class="key">A+C digits=</span><span class="val">18</span></span>
+      <span class="step-info-item"><span class="key">sig size=</span><span class="val g">288 B</span></span>
+      <span class="step-info-item"><span class="key">sk size (eager)=</span><span class="val a">73,728 B</span></span>
+      <span class="step-info-item"><span class="key">sk size (lazy)=</span><span class="val g">288 B</span></span>
+    </div>
+  </div>
+</div>
+</section>
 
-</main>
+<!-- PERFORMANCE -->
+<section id="performance">
+<div class="wrap">
+  <div class="reveal">
+    <div class="sec-tag a">Measured</div>
+    <h2>Performance Benchmarks</h2>
+    <p class="sec-sub">Real timings from the benchmark suite — SHA-256 backend, Apple M-series CPU. All figures from <code>benchmark_results.csv</code>.</p>
+  </div>
+  <div class="bench-grid reveal" id="bench-grid">
+    <div class="bench-card">
+      <div class="bench-card-title"><div class="node-dot" style="background:var(--c)"></div>Winternitz OTS</div>
+      <div class="brow"><div class="brow-label">Gen (keygen)</div><div class="brow-bar"><div class="brow-fill a" data-w="55"></div></div><div class="brow-val">3.43 ms</div></div>
+      <div class="brow"><div class="brow-label">Sign</div><div class="brow-bar"><div class="brow-fill g" data-w="0.5"></div></div><div class="brow-val">0.003 ms</div></div>
+      <div class="brow"><div class="brow-label">Verify</div><div class="brow-bar"><div class="brow-fill c" data-w="23"></div></div><div class="brow-val">1.42 ms</div></div>
+      <div class="bench-note">Sign is fast (lookup); verify recomputes chain to tip (O(CHAIN_LEN))</div>
+    </div>
+    <div class="bench-card">
+      <div class="bench-card-title"><div class="node-dot" style="background:var(--g)"></div>Stateful HBS</div>
+      <div class="brow"><div class="brow-label">StatefulSign <span class="sub">D=128</span></div><div class="brow-bar"><div class="brow-fill g" data-w="7"></div></div><div class="brow-val">0.44 ms</div></div>
+      <div class="brow"><div class="brow-label">StatefulVerify <span class="sub">D=128</span></div><div class="brow-bar"><div class="brow-fill c" data-w="27"></div></div><div class="brow-val">1.67 ms</div></div>
+      <div class="brow"><div class="brow-label">StatefulGen <span class="sub">D=8</span></div><div class="brow-bar"><div class="brow-fill a" data-w="42"></div></div><div class="brow-val">26.3 ms</div></div>
+      <div class="bench-note">Sign includes Merkle path (O(log D)) on top of OTS sign</div>
+    </div>
+    <div class="bench-card">
+      <div class="bench-card-title"><div class="node-dot" style="background:var(--p)"></div>Distributed HBS — AggregatorSign</div>
+      <div class="brow"><div class="brow-label">k=2 <span class="sub">D=8</span></div><div class="brow-bar"><div class="brow-fill p" data-w="58"></div></div><div class="brow-val">7.28 ms</div></div>
+      <div class="brow"><div class="brow-label">k=2 <span class="sub">D=16</span></div><div class="brow-bar"><div class="brow-fill p" data-w="59"></div></div><div class="brow-val">7.37 ms</div></div>
+      <div class="brow"><div class="brow-label">k=3 <span class="sub">D=8</span></div><div class="brow-bar"><div class="brow-fill a" data-w="88"></div></div><div class="brow-val">11.02 ms</div></div>
+      <div class="brow"><div class="brow-label">k=3 <span class="sub">D=16</span></div><div class="brow-bar"><div class="brow-fill a" data-w="89"></div></div><div class="brow-val">11.10 ms</div></div>
+      <div class="bench-note">Cost scales with k trustees, not D — path length is O(k log D)</div>
+    </div>
+    <div class="bench-card">
+      <div class="bench-card-title"><div class="node-dot" style="background:var(--g)"></div>AggregatorVerify</div>
+      <div class="brow"><div class="brow-label">k=2 <span class="sub">D=8</span></div><div class="brow-bar"><div class="brow-fill g" data-w="24"></div></div><div class="brow-val">1.53 ms</div></div>
+      <div class="brow"><div class="brow-label">k=2 <span class="sub">D=32</span></div><div class="brow-bar"><div class="brow-fill g" data-w="26"></div></div><div class="brow-val">1.66 ms</div></div>
+      <div class="brow"><div class="brow-label">k=3 <span class="sub">D=8</span></div><div class="brow-bar"><div class="brow-fill c" data-w="26"></div></div><div class="brow-val">1.63 ms</div></div>
+      <div class="brow"><div class="brow-label">k=3 <span class="sub">D=32</span></div><div class="brow-bar"><div class="brow-fill c" data-w="28"></div></div><div class="brow-val">1.74 ms</div></div>
+      <div class="bench-note">Verify is independent of k — same as stateful HBS target</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- OPTIMISATIONS -->
+<section id="optimisations">
+<div class="wrap">
+  <div class="reveal">
+    <div class="sec-tag p">Three measured improvements</div>
+    <h2>Optimisations</h2>
+    <p class="sec-sub">Each was benchmarked before and after. Numbers from the actual test suite.</p>
+  </div>
+  <div class="opt-grid reveal">
+    <div class="opt-card">
+      <div class="opt-body">
+        <div class="opt-num">01 · integer XOR</div>
+        <div class="opt-title">_xor_many fast path</div>
+        <p class="opt-desc">Replacing byte-by-byte XOR with a single integer operation. <code>int.from_bytes</code> + <code>^</code> is one C-level call in CPython instead of 16 interpreter iterations over a loop.</p>
+        <div class="opt-compare">
+          <div class="opt-col">
+            <div class="opt-col-label">Before · byte loop</div>
+            <div class="opt-timing before">6.59 <span class="unit">μs</span></div>
+            <div class="opt-code">for b in zip(*values):<br>&nbsp;&nbsp;acc ^= b</div>
+          </div>
+          <div class="opt-col">
+            <div class="opt-col-label">After · int XOR</div>
+            <div class="opt-timing after">1.10 <span class="unit">μs</span></div>
+            <div class="opt-code">acc = int.from_bytes(v)<br>acc ^= ...</div>
+          </div>
+        </div>
+        <div class="speedup-badge">↑ 5.9× faster · 20 000 runs</div>
+      </div>
+    </div>
+    <div class="opt-card g">
+      <div class="opt-body">
+        <div class="opt-num" style="color:var(--g)">02 · hash backend</div>
+        <div class="opt-title">BLAKE2b vs SHA-256</div>
+        <p class="opt-desc">One-line swap in <code>utils.py</code>: <code>HASH_BACKEND = "blake2b"</code>. BLAKE2b has lower per-call overhead on short 16-byte inputs. Same 128-bit security level — measurably faster keygen.</p>
+        <div class="opt-compare">
+          <div class="opt-col">
+            <div class="opt-col-label">SHA-256</div>
+            <div class="opt-timing before">3.70 <span class="unit">ms</span></div>
+            <div class="opt-code">hashlib.sha256()<br>keygen baseline</div>
+          </div>
+          <div class="opt-col">
+            <div class="opt-col-label">BLAKE2b</div>
+            <div class="opt-timing after">3.14 <span class="unit">ms</span></div>
+            <div class="opt-code">hashlib.blake2b()<br>1-line change</div>
+          </div>
+        </div>
+        <div class="speedup-badge" style="background:var(--gd);color:var(--g);border-color:var(--gg);">↑ 1.18× faster keygen</div>
+      </div>
+    </div>
+    <div class="opt-card p">
+      <div class="opt-body">
+        <div class="opt-num" style="color:var(--p)">03 · lazy chains</div>
+        <div class="opt-title">GenLazy / SignLazy</div>
+        <p class="opt-desc">Eager <code>Gen</code> stores full chains: 18 × 256 × 16 = 73,728 bytes per key. <code>GenLazy</code> stores only 18 seeds (288 B) and recomputes on demand during signing. The right tradeoff for constrained devices.</p>
+        <div class="opt-compare">
+          <div class="opt-col">
+            <div class="opt-col-label">Eager (full chains)</div>
+            <div class="opt-timing before">73 <span class="unit">KB</span></div>
+            <div class="opt-code">18 × 256 × 16 B<br>Sign: 0.003 ms</div>
+          </div>
+          <div class="opt-col">
+            <div class="opt-col-label">Lazy (seeds only)</div>
+            <div class="opt-timing after">288 <span class="unit">B</span></div>
+            <div class="opt-code">18 × 16 B seeds<br>Sign: 1.62 ms</div>
+          </div>
+        </div>
+        <div class="speedup-badge" style="background:var(--pd);color:var(--p);border-color:var(--pg);">256× smaller storage</div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture">
+<div class="wrap">
+  <div class="reveal">
+    <div class="sec-tag">Built on</div>
+    <h2>Layer architecture</h2>
+    <p class="sec-sub" style="margin-bottom:32px;">Five composable layers — each one independently tested, cleanly separated.</p>
+  </div>
+  <div class="arch-stack reveal">
+    <div class="arch-layer" style="border-color:var(--c);background:linear-gradient(135deg,rgba(0,229,255,.06),var(--s1));">
+      <div class="arch-num">5</div>
+      <div class="arch-content">
+        <h4>PRF Distributed HBS</h4>
+        <p>Two-round protocol. Each trustee contributes <code>PRF_R</code>, <code>PRF_Chain</code>, <code>PRF_Auth</code> shares. Aggregator XOR-combines via <code>_xor_many</code>. No trustee learns the full signing key.</p>
+      </div>
+      <span class="arch-badge ab-c">top layer</span>
+    </div>
+    <div class="arch-connector"><div class="line"></div></div>
+    <div class="arch-layer">
+      <div class="arch-num">4</div>
+      <div class="arch-content">
+        <h4>Shard Trustee API</h4>
+        <p>High-level aggregator + trustee interface: <code>ShardSetup</code>, <code>TrusteeSetup</code>, <code>AggregatorSign</code>, <code>AggregatorVerify</code>.</p>
+      </div>
+      <span class="arch-badge ab-c">API layer</span>
+    </div>
+    <div class="arch-connector"><div class="line"></div></div>
+    <div class="arch-layer">
+      <div class="arch-num">3</div>
+      <div class="arch-content">
+        <h4>Stateful Hash-Based Signatures</h4>
+        <p>Manages a Merkle tree of OTS keys, tracks used indices, generates authentication paths for the non-distributed baseline.</p>
+      </div>
+      <span class="arch-badge ab-g">state layer</span>
+    </div>
+    <div class="arch-connector"><div class="line"></div></div>
+    <div class="arch-layer">
+      <div class="arch-num">2</div>
+      <div class="arch-content">
+        <h4>Merkle Tree</h4>
+        <p>Commits to all OTS public keys. <code>MT_Construct</code> O(D), <code>MT_MakePath</code> O(D + log D), <code>MT_Verify</code> O(log D).</p>
+      </div>
+      <span class="arch-badge ab-g">tree layer</span>
+    </div>
+    <div class="arch-connector"><div class="line"></div></div>
+    <div class="arch-layer">
+      <div class="arch-num">1</div>
+      <div class="arch-content">
+        <h4>Winternitz OTS + Lazy variant</h4>
+        <p>Hash chains of length 256 (W=8). <code>Gen</code> builds full chains; <code>GenLazy</code> stores only seeds. Both produce identical public keys.</p>
+      </div>
+      <span class="arch-badge ab-a">OTS layer</span>
+    </div>
+    <div class="arch-connector"><div class="line"></div></div>
+    <div class="arch-layer">
+      <div class="arch-num">0</div>
+      <div class="arch-content">
+        <h4>Tweakable Hash — SHA-256 / BLAKE2b</h4>
+        <p>Domain-separated via <code>hash_lms(tweak, ...)</code>. Swap backends in one line; benchmarks show BLAKE2b 1.18× faster for short inputs.</p>
+      </div>
+      <span class="arch-badge ab-f">primitive</span>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- PAPER REF -->
+<section>
+<div class="wrap">
+  <div class="paper-card reveal">
+    <div class="ref">
+      <strong>Kelsey, Lang & Lucks (2024)</strong><br>
+      Turning Hash-Based Signatures into Distributed Signatures and Threshold Signatures<br>
+      <span class="url">IACR Communications in Cryptology · Vol 2, Issue 2</span>
+    </div>
+    <a href="https://cic.iacr.org/p/2/2/24/pdf" target="_blank" rel="noopener" class="btn outline-c">Read paper ↗</a>
+  </div>
+</div>
+</section>
 
 <footer>
-  <div class="wrap foot-inner">
-    <span>Distributed Hash-Based Signatures · Kelsey, Lang & Lucks (2024)</span>
-    <span><a href="https://github.com/iabhi92/crypto-project" target="_blank" rel="noopener">github ↗</a> · <a href="https://iabhi92.github.io">portfolio ↗</a></span>
+  <div class="foot-inner">
+    <span>Distributed Hash-Based Threshold Signatures · Python implementation</span>
+    <span>
+      <a href="https://github.com/iabhi92/crypto-project" target="_blank" rel="noopener">github ↗</a>
+      &nbsp;·&nbsp;
+      <a href="https://iabhi92.github.io">portfolio ↗</a>
+    </span>
   </div>
 </footer>
 
 <script>
-const root = document.documentElement;
-document.getElementById('theme').addEventListener('click', () =>
-  root.setAttribute('data-theme', root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
+/* ══════════════ HERO CANVAS ══════════════ */
+const canvas = document.getElementById('hero-canvas');
+const ctx = canvas.getContext('2d');
+let W2, H2, nodes = [], packets = [];
 
-const io = new IntersectionObserver(es => es.forEach(e => {
-  if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
-}), { threshold: .1 });
-document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+function resize() {
+  W2 = canvas.width = canvas.offsetWidth;
+  H2 = canvas.height = canvas.offsetHeight;
+  initNodes();
+}
+
+function initNodes() {
+  nodes = [];
+  const count = Math.floor(W2 * H2 / 28000);
+  for (let i = 0; i < count; i++) {
+    nodes.push({
+      x: Math.random() * W2, y: Math.random() * H2,
+      vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3,
+      r: Math.random() * 2 + 1,
+      color: ['#00E5FF','#00FFA3','#A855F7'][Math.floor(Math.random()*3)]
+    });
+  }
+}
+
+function drawHero() {
+  ctx.clearRect(0, 0, W2, H2);
+  nodes.forEach(n => {
+    n.x += n.vx; n.y += n.vy;
+    if (n.x < 0 || n.x > W2) n.vx *= -1;
+    if (n.y < 0 || n.y > H2) n.vy *= -1;
+  });
+  nodes.forEach((a, i) => {
+    nodes.slice(i+1).forEach(b => {
+      const dx = a.x - b.x, dy = a.y - b.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 130) {
+        ctx.beginPath();
+        ctx.strokeStyle = a.color + Math.floor((1 - dist/130) * 30).toString(16).padStart(2,'0');
+        ctx.lineWidth = .6;
+        ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+    });
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, a.r, 0, Math.PI*2);
+    ctx.fillStyle = a.color + '99';
+    ctx.fill();
+  });
+  requestAnimationFrame(drawHero);
+}
+window.addEventListener('resize', resize);
+resize();
+drawHero();
+
+/* ══════════════ PROTOCOL SIMULATOR ══════════════ */
+let simStep = 0;
+const SIM_STEPS = 5;
+
+const simData = {
+  t1Prf: '3c a1 77 b0  2f 8e 54 d6\n91 c3 5a 0b  e4 7f 28 9d',
+  t2Prf: '5b d2 8a 41  e6 19 cb 3f\n7d 26 4e 88  1a c7 53 62',
+  xorVal: '67 73 fd f1  c9 97 9f e9\nec e5 14 83  fe b8 7b ff',
+  t1Chain: '9f 3a b2 c1  44 7e 05 8d\nb6 2f e9 77  13 ac 60 5b',
+  t2Chain: 'c4 81 6d 3e  f0 29 b7 52\n4a 9c d3 1f  87 e6 0a 38',
+  sigVal: '67 73 fd f1 c9 97 9f e9 ec e5 14 83 fe b8 7b ff\n9f 3a b2 c1 44 7e 05 8d b6 2f e9 77 13 ac 60 5b\n... [288 B total · 18 chain elements × 16 B]'
+};
+
+const stepLabels = [
+  'Ready — 2 trustees, k=2',
+  'Round 1 — PRF_R contributions',
+  'Aggregator XOR combines',
+  'Round 2 — chain contributions',
+  'Signature produced',
+  '✓ Verified'
+];
+
+const stepLogs = [
+  [],
+  [
+    ['00:01', '<span class="c">Trustee 1</span> → PRF_R(seed₁, keyID=0, r) → aggregator'],
+    ['00:01', '<span class="g">Trustee 2</span> → PRF_R(seed₂, keyID=0, r) → aggregator'],
+    ['00:01', '<span class="p">Aggregator</span> received both R contributions'],
+  ],
+  [
+    ['00:02', '<span class="p">Aggregator</span> computing CRV: c₁ ⊕ c₂ via <span class="c">_xor_many()</span>'],
+    ['00:02', 'Integer XOR: int.from_bytes + ^ (5.9× faster than byte loop)'],
+    ['00:02', '<span class="a">CRV = 67 73 fd f1 c9 97 9f e9...</span> stored'],
+  ],
+  [
+    ['00:03', '<span class="c">Trustee 1</span> → PRF_Chain(seed₁, keyID, i, j) × 18'],
+    ['00:03', '<span class="g">Trustee 2</span> → PRF_Chain(seed₂, keyID, i, j) × 18'],
+    ['00:03', '<span class="p">Aggregator</span> XOR-combines chain contributions with CRV'],
+  ],
+  [
+    ['00:04', '<span class="a">Signature assembled: (r, path, z)</span>'],
+    ['00:04', '288 B = 18 chain elements × 16 B each (W=8, A+C=18)'],
+    ['00:04', 'No trustee ever held the full signing key'],
+  ],
+  [
+    ['00:05', '<span class="p">Aggregator</span> → AggregatorVerify(msg, r, path, z)'],
+    ['00:05', 'Reconstructing chain tips: hash_lms(tweak, chain[w_i:CHAIN_LEN])'],
+    ['00:05', 'Merkle path verification: O(log D) hash calls'],
+    ['00:05', '<span class="ok">✓ assert AggregatorVerify(...) passed</span>'],
+  ]
+];
+
+function simNext() {
+  if (simStep >= SIM_STEPS) return;
+  simStep++;
+
+  const dots = document.querySelectorAll('.sim-dot');
+  dots.forEach((d, i) => {
+    d.className = 'sim-dot' + (i < simStep ? ' done' : '') + (i === simStep ? ' active' : '');
+  });
+  document.getElementById('sim-step-label').textContent = `Step ${simStep} / ${SIM_STEPS}`;
+
+  const ts = new Date();
+  const timeStr = `00:0${simStep}`;
+
+  if (simStep === 1) {
+    document.getElementById('t1-prf').className = 'node-output active-c';
+    document.getElementById('t1-prf').querySelector('.content').textContent = simData.t1Prf;
+    document.getElementById('t2-prf').className = 'node-output active-g';
+    document.getElementById('t2-prf').querySelector('.content').textContent = simData.t2Prf;
+  }
+  if (simStep === 2) {
+    document.getElementById('xor-sym').style.opacity = '1';
+    document.getElementById('xor-result').className = 'xor-result show';
+    document.getElementById('xor-val').textContent = simData.xorVal;
+  }
+  if (simStep === 3) {
+    document.getElementById('t1-chain').className = 'node-output active-c';
+    document.getElementById('t1-chain').querySelector('.content').textContent = simData.t1Chain;
+    document.getElementById('t2-chain').className = 'node-output active-g';
+    document.getElementById('t2-chain').querySelector('.content').textContent = simData.t2Chain;
+  }
+  if (simStep === 4) {
+    document.getElementById('sig-box').className = 'sig-box show';
+    document.getElementById('sig-val').textContent = simData.sigVal;
+  }
+  if (simStep === 5) {
+    document.getElementById('verify-box').className = 'node-output active-g';
+    document.getElementById('verify-val').innerHTML = '<span style="color:var(--g);font-weight:700">✓ AggregatorVerify() → True</span>';
+    document.getElementById('sim-next').disabled = true;
+    document.getElementById('sim-next').style.opacity = '.4';
+  }
+
+  const log = document.getElementById('sim-log');
+  stepLogs[simStep].forEach(([t, msg]) => {
+    const div = document.createElement('div');
+    div.className = 'log-line';
+    div.innerHTML = `<span class="ts">[${t}]</span><span class="msg">${msg}</span>`;
+    log.appendChild(div);
+  });
+  log.scrollTop = log.scrollHeight;
+}
+
+function simReset() {
+  simStep = 0;
+  document.querySelectorAll('.sim-dot').forEach((d, i) => {
+    d.className = 'sim-dot' + (i === 0 ? ' active' : '');
+  });
+  document.getElementById('sim-step-label').textContent = 'Step 0 / 5';
+  document.getElementById('t1-prf').className = 'node-output';
+  document.getElementById('t1-prf').querySelector('.content').textContent = 'waiting...';
+  document.getElementById('t2-prf').className = 'node-output';
+  document.getElementById('t2-prf').querySelector('.content').textContent = 'waiting...';
+  document.getElementById('t1-chain').className = 'node-output';
+  document.getElementById('t1-chain').querySelector('.content').textContent = 'waiting...';
+  document.getElementById('t2-chain').className = 'node-output';
+  document.getElementById('t2-chain').querySelector('.content').textContent = 'waiting...';
+  document.getElementById('xor-sym').style.opacity = '0';
+  document.getElementById('xor-result').className = 'xor-result';
+  document.getElementById('xor-val').textContent = 'awaiting contributions...';
+  document.getElementById('sig-box').className = 'sig-box';
+  document.getElementById('sig-val').textContent = 'not yet generated';
+  document.getElementById('verify-box').className = 'node-output';
+  document.getElementById('verify-val').textContent = 'pending';
+  document.getElementById('sim-next').disabled = false;
+  document.getElementById('sim-next').style.opacity = '1';
+  document.getElementById('sim-log').innerHTML = `
+    <div class="log-line"><span class="ts">[00:00]</span><span class="msg">Protocol ready. <span class="c">k=2 trustees</span>, <span class="p">n=2</span>, D=4 key slots.</span></div>
+    <div class="log-line"><span class="ts">[00:00]</span><span class="msg">Press <span class="a">Next Step</span> to begin the two-round signing protocol.</span></div>`;
+}
+
+/* ══════════════ CHAIN EXPLORER ══════════════ */
+const VISIBLE = 22;
+const CHAIN_TOTAL = 256;
+
+const hexSamples = [
+  'a4f2','3b8c','1de7','906a','5f2c','44bb','73e1','0d9f',
+  'c820','b3f7','9a14','52de','7061','f3a8','4dc5','281b',
+  'e690','17f4','8c23','b5a9','0d6e','4382'
+];
+
+function updateChain() {
+  const pos = parseInt(document.getElementById('chain-pos').value);
+  document.getElementById('chain-pos-val').textContent = pos;
+  document.getElementById('chain-rem').textContent = CHAIN_TOTAL - pos;
+  renderChain(pos);
+}
+
+function renderChain(signPos) {
+  const scroll = document.getElementById('chain-scroll');
+  scroll.innerHTML = '';
+
+  const positions = [0, ...Array.from({length:VISIBLE-2}, (_,i) => Math.floor((i+1)*(CHAIN_TOTAL-1)/(VISIBLE-1))), CHAIN_TOTAL-1];
+  const uniquePos = [...new Set(positions)].sort((a,b)=>a-b).slice(0, VISIBLE);
+
+  uniquePos.forEach((pos, idx) => {
+    if (idx > 0) {
+      const arrow = document.createElement('div');
+      arrow.className = 'chain-arrow';
+      scroll.appendChild(arrow);
+    }
+    const node = document.createElement('div');
+    node.className = 'chain-node';
+
+    const cell = document.createElement('div');
+    const sample = hexSamples[idx % hexSamples.length];
+    const nextSample = hexSamples[(idx+1) % hexSamples.length];
+
+    let cls = 'chain-cell filled';
+    let content = `${sample}<br>${nextSample}`;
+    let label = `h[${pos}]`;
+
+    if (pos === 0) { cls = 'chain-cell seed'; label = 'seed'; }
+    else if (pos === CHAIN_TOTAL - 1) { cls = 'chain-cell pk'; label = 'pk'; }
+    else if (pos === signPos) { cls = 'chain-cell sign-pos'; label = `sign\n(w=${pos})`; }
+
+    cell.className = cls;
+    cell.innerHTML = content;
+    const lbl = document.createElement('div');
+    lbl.className = 'chain-label';
+    lbl.textContent = label;
+    node.appendChild(cell);
+    node.appendChild(lbl);
+    scroll.appendChild(node);
+  });
+}
+updateChain();
+
+/* ══════════════ BENCHMARK BARS (animate on scroll) ══════════════ */
+const benchObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.querySelectorAll('.brow-fill').forEach(bar => {
+        const w = bar.dataset.w;
+        setTimeout(() => { bar.style.width = w + '%'; }, 100);
+      });
+      benchObs.unobserve(e.target);
+    }
+  });
+}, { threshold: .2 });
+document.querySelectorAll('.bench-card').forEach(c => benchObs.observe(c));
+
+/* ══════════════ REVEAL ON SCROLL ══════════════ */
+const revObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); revObs.unobserve(e.target); } });
+}, { threshold: .08 });
+document.querySelectorAll('.reveal').forEach(el => revObs.observe(el));
 </script>
 </body>
 </html>
