@@ -3,554 +3,549 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Distributed Hash-Based Threshold Signatures</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Inter:wght@700;800;900&display=swap" rel="stylesheet"/>
+<title>Distributed Hash-Based Threshold Signatures — Kelsey, Lang &amp; Lucks 2024</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Inter:wght@600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#04090F;
-  --s1:#07101A;--s2:#0A1622;--s3:#0E1E2E;
-  --c:#00C8F0;--g:#00E07A;--r:#FF2952;--y:#F2B238;--p:#9D6FFF;
-  --ink:#C4DDEF;--mid:#5A7A96;--dim:#2E4A60;--ghost:#152030;--line:#1C3040;
-  --cg:rgba(0,200,240,.1);--gg:rgba(0,224,122,.1);--rg:rgba(255,41,82,.1);--yg:rgba(242,178,56,.08);
-  --cgl:rgba(0,200,240,.18);--ggl:rgba(0,224,122,.18);
-  --cs:0 0 20px rgba(0,200,240,.3);--gs:0 0 20px rgba(0,224,122,.3);--rs:0 0 20px rgba(255,41,82,.3);
-  --r8:8px;--r6:6px;
+  --bg:#030A12;
+  --s1:#060F1A;--s2:#09162200;--s3:#0D1E2C;
+  --c:#00BFDF;--g:#00D96E;--r:#FF2547;--y:#F0AE30;--p:#8B5CF6;
+  --ink:#B8D4E8;--mid:#4D6E88;--dim:#253C52;--ghost:#111F2E;--line:#182C3E;
+  --cg:rgba(0,191,223,.08);--gg:rgba(0,217,110,.08);--rg:rgba(255,37,71,.08);--yg:rgba(240,174,48,.07);--pg:rgba(139,92,246,.08);
+  --cs:0 0 18px rgba(0,191,223,.25);--gs:0 0 18px rgba(0,217,110,.25);--rs:0 0 18px rgba(255,37,71,.25);
+  --r8:8px;--r6:6px;--r4:4px;
 }
 html{scroll-behavior:smooth;}
-body{background:var(--bg);color:var(--ink);font-family:'JetBrains Mono',monospace;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6;}
+body{background:var(--bg);color:var(--ink);font-family:'JetBrains Mono',monospace;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.65;}
 ::selection{background:var(--c);color:#000;}
 a{color:inherit;text-decoration:none;}
 
-/* GRID */
-body::before{content:'';position:fixed;inset:0;
-  background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
-  background-size:48px 48px;pointer-events:none;z-index:0;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(0,191,223,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(0,191,223,.018) 1px,transparent 1px);
+  background-size:56px 56px;}
 
-/* scrollbar */
-::-webkit-scrollbar{width:5px;}
-::-webkit-scrollbar-track{background:var(--bg);}
-::-webkit-scrollbar-thumb{background:var(--dim);border-radius:3px;}
-::-webkit-scrollbar-thumb:hover{background:var(--mid);}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px;}
 
-/* ─── NAV ─── */
-nav{position:fixed;top:0;left:0;right:0;z-index:900;height:54px;
-  background:rgba(4,9,15,.88);backdrop-filter:blur(24px) saturate(180%);
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:900;height:52px;
+  background:rgba(3,10,18,.9);backdrop-filter:blur(20px) saturate(160%);
   border-bottom:1px solid var(--line);display:flex;align-items:center;}
-.nav-w{max-width:1200px;margin:0 auto;width:100%;padding:0 28px;
-  display:flex;align-items:center;justify-content:space-between;}
-.logo{font-size:.8rem;font-weight:700;letter-spacing:.04em;}
-.logo-main{color:var(--c);}
-.logo-sep{color:var(--dim);}
-.logo-sub{color:var(--mid);}
-.nav-r{display:flex;gap:2px;align-items:center;}
-.na{font-size:.7rem;padding:6px 14px;border-radius:6px;color:var(--dim);
-  cursor:pointer;transition:.15s;background:none;border:none;font-family:inherit;}
+.nw{max-width:1200px;margin:0 auto;width:100%;padding:0 24px;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-size:.75rem;font-weight:700;letter-spacing:.05em;}
+.logo span:first-child{color:var(--c);}
+.logo span:nth-child(2){color:var(--dim);}
+.logo span:last-child{color:var(--mid);}
+.nr{display:flex;gap:1px;align-items:center;}
+.na{font-size:.68rem;padding:5px 12px;border-radius:5px;color:var(--dim);
+  cursor:pointer;transition:.14s;background:none;border:none;font-family:inherit;}
 .na:hover{color:var(--ink);background:var(--ghost);}
-.na.gh{color:var(--c);border:1px solid rgba(0,200,240,.3);margin-left:6px;}
+.na.gh{color:var(--c);border:1px solid rgba(0,191,223,.28);margin-left:8px;}
 .na.gh:hover{background:var(--cg);box-shadow:var(--cs);}
-.na.gh:focus{outline:2px solid var(--c);outline-offset:2px;}
 
-/* ─── LAYOUT ─── */
-.w{max-width:1200px;margin:0 auto;padding:0 28px;position:relative;z-index:1;}
-section{padding:88px 0;}
+/* LAYOUT */
+.w{max-width:1200px;margin:0 auto;padding:0 24px;position:relative;z-index:1;}
+section{padding:96px 0;}
+.sec-stripe{background:rgba(6,15,26,.6);border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
 
-/* ─── SECTION LABEL ─── */
-.sl{display:flex;align-items:center;gap:16px;margin-bottom:24px;}
-.sl-n{font-size:.58rem;letter-spacing:.14em;color:var(--dim);}
-.sl-t{font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;font-weight:700;}
-.sl-t.c{color:var(--c);}
-.sl-t.g{color:var(--g);}
-.sl-t.r{color:var(--r);}
-.sl-t.y{color:var(--y);}
-.sl-line{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent);}
-h2{font-family:'Inter',sans-serif;font-size:clamp(1.7rem,3vw,2.4rem);
-  font-weight:800;line-height:1.05;letter-spacing:-.035em;margin-bottom:12px;color:#E8F4FF;}
-.sdesc{font-size:.82rem;color:var(--mid);line-height:1.85;max-width:66ch;margin-bottom:32px;}
-.sdesc code,.sdesc samp{color:var(--c);background:var(--cg);padding:1px 6px;border-radius:3px;font-size:.78rem;}
+/* SECTION LABEL */
+.sl{display:flex;align-items:center;gap:14px;margin-bottom:20px;}
+.sl-idx{font-size:.56rem;color:var(--dim);letter-spacing:.1em;font-variant-numeric:tabular-nums;}
+.sl-tag{font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;font-weight:800;}
+.sl-tag.c{color:var(--c);}
+.sl-tag.g{color:var(--g);}
+.sl-tag.r{color:var(--r);}
+.sl-tag.y{color:var(--y);}
+.sl-tag.p{color:var(--p);}
+.sl-rule{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent);}
+h2{font-family:'Inter',sans-serif;font-size:clamp(1.6rem,2.8vw,2.2rem);
+  font-weight:800;line-height:1.05;letter-spacing:-.04em;margin-bottom:10px;color:#DDF0FF;}
+.sdesc{font-size:.81rem;color:var(--mid);line-height:1.9;max-width:70ch;margin-bottom:28px;}
+.sdesc code{color:var(--c);background:var(--cg);padding:1px 5px;border-radius:3px;font-size:.77rem;border:1px solid rgba(0,191,223,.15);}
 
-/* ─── TAGS ─── */
+/* TAGS */
 .tag{display:inline-flex;align-items:center;padding:3px 9px;border-radius:4px;
-  font-size:.62rem;font-weight:700;letter-spacing:.05em;border:1px solid;}
-.tag.c{color:var(--c);border-color:rgba(0,200,240,.25);background:var(--cg);}
-.tag.g{color:var(--g);border-color:rgba(0,224,122,.25);background:var(--gg);}
+  font-size:.6rem;font-weight:700;letter-spacing:.06em;border:1px solid;}
+.tag.c{color:var(--c);border-color:rgba(0,191,223,.22);background:var(--cg);}
+.tag.g{color:var(--g);border-color:rgba(0,217,110,.22);background:var(--gg);}
 .tag.d{color:var(--mid);border-color:var(--line);}
-.tag.r{color:var(--r);border-color:rgba(255,41,82,.25);background:var(--rg);}
+.tag.r{color:var(--r);border-color:rgba(255,37,71,.22);background:var(--rg);}
+.tag.y{color:var(--y);border-color:rgba(240,174,48,.22);background:var(--yg);}
 
-/* ─── BUTTONS ─── */
-.btn{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:700;
-  padding:9px 20px;border-radius:var(--r6);border:1px solid;cursor:pointer;
-  transition:.16s;letter-spacing:.025em;display:inline-flex;align-items:center;gap:8px;}
-.btn:disabled{opacity:.35;cursor:not-allowed;}
+/* BUTTONS */
+.btn{font-family:'JetBrains Mono',monospace;font-size:.75rem;font-weight:700;
+  padding:8px 18px;border-radius:var(--r6);border:1px solid;cursor:pointer;
+  transition:.15s;letter-spacing:.03em;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
 .btn:focus-visible{outline:2px solid var(--c);outline-offset:2px;}
-.btn.c{background:var(--c);color:#000;border-color:var(--c);}
-.btn.c:hover:not(:disabled){filter:brightness(1.1);box-shadow:var(--cs);}
+.btn.c{background:var(--c);color:#000;border-color:var(--c);font-weight:800;}
+.btn.c:hover:not(:disabled){filter:brightness(1.08);box-shadow:var(--cs);}
 .btn.g{background:transparent;border-color:var(--g);color:var(--g);}
 .btn.g:hover:not(:disabled){background:var(--gg);box-shadow:var(--gs);}
 .btn.r{background:transparent;border-color:var(--r);color:var(--r);}
 .btn.r:hover:not(:disabled){background:var(--rg);}
+.btn.p{background:transparent;border-color:var(--p);color:var(--p);}
+.btn.p:hover:not(:disabled){background:var(--pg);}
 .btn.d{background:transparent;border-color:var(--line);color:var(--mid);}
 .btn.d:hover:not(:disabled){border-color:var(--dim);color:var(--ink);}
 
-/* ─── HERO ─── */
-.hero{min-height:100vh;display:flex;align-items:center;
-  padding:80px 28px 60px;position:relative;overflow:hidden;}
-#hc{position:absolute;inset:0;}
-.hero-inner{position:relative;z-index:1;max-width:1200px;margin:0 auto;
-  width:100%;display:grid;grid-template-columns:1fr 380px;gap:60px;align-items:center;}
-.hero-left{}
-.eyebrow{font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;color:var(--c);
-  margin-bottom:20px;display:flex;align-items:center;gap:10px;}
-.eyebrow::before{content:'';width:18px;height:1px;background:var(--c);}
-h1{font-family:'Inter',sans-serif;font-size:clamp(3rem,7vw,5.5rem);
-  font-weight:900;line-height:.92;letter-spacing:-.05em;margin-bottom:22px;color:#F0F8FF;}
-h1 .hl{color:var(--c);}
-.hero-desc{font-size:.88rem;color:var(--mid);max-width:52ch;line-height:1.85;margin-bottom:24px;}
-.hero-params{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:28px;}
-.hero-btns{display:flex;gap:10px;flex-wrap:wrap;}
+/* HERO */
+.hero{min-height:100vh;display:flex;align-items:center;padding:72px 24px 56px;position:relative;overflow:hidden;}
+#hc{position:absolute;inset:0;opacity:.6;}
+.hero-inner{position:relative;z-index:1;max-width:1200px;margin:0 auto;width:100%;
+  display:grid;grid-template-columns:1fr 360px;gap:64px;align-items:center;}
+.eyebrow{font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--c);
+  margin-bottom:18px;display:flex;align-items:center;gap:10px;}
+.eyebrow::before{content:'';width:16px;height:1px;background:var(--c);flex-shrink:0;}
+h1{font-family:'Inter',sans-serif;font-size:clamp(2.8rem,6.5vw,5rem);
+  font-weight:900;line-height:.91;letter-spacing:-.055em;margin-bottom:20px;color:#EAF6FF;}
+h1 em{color:var(--c);font-style:normal;}
+.hero-sub{font-size:.85rem;color:var(--mid);max-width:50ch;line-height:1.9;margin-bottom:22px;}
+.hero-sub strong{color:var(--ink);font-weight:700;}
+.hero-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:26px;}
+.hero-btns{display:flex;gap:9px;flex-wrap:wrap;}
 
-/* hero right panel */
-.hero-panel{background:rgba(7,16,26,.7);border:1px solid var(--line);
-  border-radius:var(--r8);padding:22px;backdrop-filter:blur(12px);}
-.hp-title{font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--dim);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
-.hp-title::after{content:'';flex:1;height:1px;background:var(--ghost);}
-.hp-counter{display:flex;flex-direction:column;gap:3px;margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--ghost);}
-.hp-counter-label{font-size:.58rem;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;}
-.hp-counter-val{font-size:2.4rem;font-weight:700;color:var(--c);line-height:1;
-  font-variant-numeric:tabular-nums;letter-spacing:-.02em;text-shadow:var(--cs);}
-.hp-counter-sub{font-size:.6rem;color:var(--dim);}
-.hp-rows{display:flex;flex-direction:column;gap:10px;}
-.hp-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
-.hp-row-label{font-size:.65rem;color:var(--dim);}
-.hp-row-val{font-size:.72rem;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
-.hp-row-val.c{color:var(--c);}
-.hp-row-val.g{color:var(--g);}
-.hp-divider{height:1px;background:var(--ghost);margin:4px 0;}
-.live-badge{display:inline-flex;align-items:center;gap:5px;font-size:.6rem;color:var(--g);margin-top:14px;}
-.live-dot{width:5px;height:5px;border-radius:50%;background:var(--g);animation:pulse 2s ease infinite;}
-@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+/* HERO PANEL */
+.hp{background:rgba(6,15,26,.75);border:1px solid var(--line);border-radius:var(--r8);padding:20px;backdrop-filter:blur(16px);}
+.hp-hdr{font-size:.56rem;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);
+  margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--ghost);
+  display:flex;align-items:center;justify-content:space-between;}
+.hp-live{display:flex;align-items:center;gap:5px;color:var(--g);}
+.hp-dot{width:4px;height:4px;border-radius:50%;background:var(--g);animation:blink 2s ease infinite;}
+@keyframes blink{0%,100%{opacity:1;}55%{opacity:.15;}}
+.hp-big{font-size:2.6rem;font-weight:700;color:var(--c);line-height:1;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums;text-shadow:0 0 30px rgba(0,191,223,.3);margin-bottom:2px;}
+.hp-sub{font-size:.58rem;color:var(--dim);margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--ghost);}
+.hp-row{display:flex;justify-content:space-between;align-items:baseline;gap:6px;padding:4px 0;}
+.hp-rl{font-size:.63rem;color:var(--dim);}
+.hp-rv{font-size:.7rem;font-weight:700;font-variant-numeric:tabular-nums;}
+.hp-rv.c{color:var(--c);}
+.hp-rv.g{color:var(--g);}
+.hp-rv.y{color:var(--y);}
+.hp-div{height:1px;background:var(--ghost);margin:6px 0;}
 
-/* ─── STEP PIPELINE ─── */
-.pipeline{display:flex;align-items:center;gap:0;margin-bottom:28px;}
-.pipe-step{display:flex;align-items:center;gap:10px;padding:10px 18px;
-  border:1px solid var(--line);background:var(--s1);border-radius:0;cursor:pointer;
-  transition:.15s;flex:1;position:relative;}
-.pipe-step:first-child{border-radius:var(--r6) 0 0 var(--r6);}
-.pipe-step:last-child{border-radius:0 var(--r6) var(--r6) 0;}
-.pipe-step:not(:last-child){border-right:none;}
-.pipe-num{width:20px;height:20px;border-radius:50%;border:1px solid var(--dim);
-  display:flex;align-items:center;justify-content:center;font-size:.6rem;
-  color:var(--dim);flex-shrink:0;font-weight:700;transition:.15s;}
-.pipe-label{font-size:.68rem;font-weight:700;color:var(--dim);letter-spacing:.03em;transition:.15s;}
-.pipe-sub{font-size:.55rem;color:var(--ghost);transition:.15s;}
-.pipe-step.active{background:var(--cg);border-color:rgba(0,200,240,.35);z-index:1;}
-.pipe-step.active .pipe-num{border-color:var(--c);color:var(--c);background:var(--cg);}
-.pipe-step.active .pipe-label{color:var(--c);}
-.pipe-step.active .pipe-sub{color:var(--mid);}
-.pipe-step.done{background:var(--gg);border-color:rgba(0,224,122,.25);}
-.pipe-step.done .pipe-num{border-color:var(--g);color:var(--g);background:var(--gg);}
-.pipe-step.done .pipe-label{color:var(--g);}
-.pipe-step.done .pipe-sub{color:var(--mid);}
+/* PIPELINE */
+.pipeline{display:flex;margin-bottom:24px;border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.ps{flex:1;padding:12px 16px;background:var(--s1);cursor:pointer;transition:.14s;
+  display:flex;align-items:center;gap:10px;border-right:1px solid var(--line);}
+.ps:last-child{border-right:none;}
+.ps-n{width:22px;height:22px;border-radius:50%;border:1px solid var(--dim);
+  display:flex;align-items:center;justify-content:center;font-size:.58rem;
+  color:var(--dim);flex-shrink:0;font-weight:700;transition:.14s;}
+.ps-label{font-size:.67rem;font-weight:700;color:var(--dim);transition:.14s;}
+.ps-fn{font-size:.54rem;color:var(--ghost);display:block;margin-top:1px;transition:.14s;}
+.ps.active{background:rgba(0,191,223,.07);border-right-color:rgba(0,191,223,.2);}
+.ps.active .ps-n{border-color:var(--c);color:var(--c);background:var(--cg);}
+.ps.active .ps-label{color:var(--c);}
+.ps.active .ps-fn{color:var(--mid);}
+.ps.done .ps-n{border-color:var(--g);color:var(--g);background:var(--gg);}
+.ps.done .ps-label{color:var(--g);}
+.ps.done .ps-fn{color:var(--dim);}
 
-/* ─── OTS GRID ─── */
-.ots-grid{display:grid;grid-template-columns:260px 1fr;gap:18px;align-items:start;}
-.ots-left{display:flex;flex-direction:column;gap:12px;}
-.params-card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
-.params-card-hdr{padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--line);
-  font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);}
-.params-table{width:100%;border-collapse:collapse;}
-.params-table tr{border-bottom:1px solid var(--ghost);}
-.params-table tr:last-child{border-bottom:none;}
-.params-table td{padding:7px 14px;font-size:.7rem;}
-.params-table td:first-child{color:var(--dim);}
-.params-table td:last-child{color:var(--c);font-weight:700;text-align:right;}
-.ots-btn-col{display:flex;flex-direction:column;gap:8px;}
-.info-box{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);padding:14px 16px;}
-.info-box-label{font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px;}
-.info-hex{font-size:.65rem;color:var(--dim);word-break:break-all;line-height:1.7;min-height:32px;}
-.info-hex.c{color:var(--c);}
-.info-hex.g{color:var(--g);}
+/* OTS GRID */
+.og{display:grid;grid-template-columns:260px 1fr;gap:16px;align-items:start;}
+.ol{display:flex;flex-direction:column;gap:10px;}
+.pcard{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.pcard-hdr{padding:8px 14px;background:rgba(9,22,34,.8);border-bottom:1px solid var(--line);
+  font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);}
+.ptab{width:100%;border-collapse:collapse;}
+.ptab tr{border-bottom:1px solid var(--ghost);}
+.ptab tr:last-child{border-bottom:none;}
+.ptab td{padding:7px 12px;font-size:.68rem;}
+.ptab td:first-child{color:var(--dim);}
+.ptab td:last-child{color:var(--c);font-weight:700;text-align:right;font-variant-numeric:tabular-nums;}
+.txt-inp{font-family:'JetBrains Mono',monospace;font-size:.76rem;background:var(--s1);
+  border:1px solid var(--line);border-radius:var(--r6);padding:8px 12px;color:var(--ink);
+  outline:none;transition:.14s;width:100%;}
+.txt-inp:focus{border-color:var(--c);}
+.ibox{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);padding:12px 14px;}
+.ibox-l{font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:5px;}
+.ihex{font-size:.63rem;word-break:break-all;line-height:1.75;min-height:28px;color:var(--dim);}
+.ihex.c{color:var(--c);}
+.ihex.g{color:var(--g);}
+.btn-col{display:flex;flex-direction:column;gap:7px;}
 
-/* ─── TERMINAL ─── */
-.term{background:#020C04;border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
-.term-bar{background:#03100601;padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.04);
-  display:flex;align-items:center;gap:8px;}
-.term-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-.term-fname{font-size:.65rem;color:rgba(255,255,255,.2);margin-left:6px;letter-spacing:.02em;}
-.term-body{padding:18px 22px;overflow-y:auto;max-height:400px;line-height:2;}
-.term-body::-webkit-scrollbar{width:3px;}
-.term-body::-webkit-scrollbar-thumb{background:#0F2A10;}
-.tl{display:flex;gap:10px;font-size:.71rem;}
-.tl-ts{color:#15401A;flex-shrink:0;font-variant-numeric:tabular-nums;user-select:none;}
-.tl-m{color:#3A7040;}
-.tl-m .kw{color:#5A9060;}
-.tl-m .val{color:#6AAF70;}
-.tl-m .hi{color:#00E07A;font-weight:700;}
-.tl-m .err{color:#FF2952;font-weight:700;}
-.tl-m .cyan{color:#00C8F0;}
-.tl-m .num{color:#F2B238;}
-.tl-m .dim2{color:#1E4A22;}
-.tl-m .bold{font-weight:700;}
+/* TERMINAL — navy, not green */
+.term{background:#020810;border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.tbar{background:rgba(3,12,22,.8);padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.04);
+  display:flex;align-items:center;gap:7px;}
+.td{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.tfn{font-size:.62rem;color:rgba(255,255,255,.18);margin-left:6px;}
+.tbody{padding:16px 20px;overflow-y:auto;max-height:420px;line-height:1.95;}
+.tbody::-webkit-scrollbar{width:2px;}
+.tbody::-webkit-scrollbar-thumb{background:#102030;}
+.tl{display:flex;gap:9px;font-size:.7rem;}
+.ts{color:#152535;flex-shrink:0;font-variant-numeric:tabular-nums;user-select:none;width:52px;}
+.tm{color:#2D5575;}
+.tm .kw{color:#00BFDF;}
+.tm .val{color:#4A90B8;}
+.tm .hi{color:#00D96E;font-weight:700;}
+.tm .err{color:#FF2547;font-weight:700;}
+.tm .num{color:#F0AE30;}
+.tm .dim{color:#112030;}
+.tm .ink{color:#7AADCC;}
+.tm .b{font-weight:700;}
 
-/* ─── DIGIT TABLE ─── */
-.digit-wrap{margin-top:14px;}
-.digit-card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
-.digit-card-hdr{padding:12px 18px;background:var(--s2);border-bottom:1px solid var(--line);
+/* DIGIT TABLE */
+.dtw{margin-top:12px;background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.dth{padding:10px 16px;background:rgba(9,22,34,.8);border-bottom:1px solid var(--line);
   display:flex;justify-content:space-between;align-items:center;}
-.digit-card-hdr-l{font-size:.62rem;font-weight:700;color:var(--ink);}
-.digit-card-hdr-r{font-size:.6rem;color:var(--dim);}
-.digit-scroll{overflow-x:auto;}
-table.dt{width:100%;border-collapse:collapse;font-size:.66rem;}
-table.dt th{padding:8px 12px;background:var(--s2);color:var(--dim);font-weight:500;
+.dth-l{font-size:.6rem;font-weight:700;color:var(--ink);}
+.dth-r{font-size:.58rem;color:var(--dim);}
+.dtscroll{overflow-x:auto;}
+table.dt{width:100%;border-collapse:collapse;font-size:.64rem;}
+table.dt th{padding:7px 10px;background:rgba(9,22,34,.8);color:var(--dim);font-weight:500;
   text-align:center;border-bottom:1px solid var(--line);white-space:nowrap;}
-table.dt td{padding:6px 12px;text-align:center;border-bottom:1px solid var(--ghost);
-  font-variant-numeric:tabular-nums;}
+table.dt td{padding:5px 10px;text-align:center;border-bottom:1px solid var(--ghost);font-variant-numeric:tabular-nums;}
 table.dt tr:last-child td{border-bottom:none;}
-table.dt tr.cs-row td{background:rgba(242,178,56,.04);}
-.chain-bar-cell{width:80px;}
-.chain-bar-wrap{height:6px;background:var(--ghost);border-radius:3px;overflow:hidden;}
-.chain-bar-fill{height:100%;border-radius:3px;}
-.csum-note{padding:10px 16px;font-size:.62rem;color:var(--dim);
-  border-top:1px solid var(--ghost);background:var(--s2);}
+table.dt tr.csr td{background:rgba(240,174,48,.04);}
+.cbar{height:5px;background:var(--ghost);border-radius:3px;overflow:hidden;width:70px;margin:0 auto;}
+.cbf{height:100%;border-radius:3px;}
+.cfoot{padding:8px 14px;font-size:.6rem;color:var(--dim);
+  border-top:1px solid var(--ghost);background:rgba(9,22,34,.6);}
 
-/* ─── THRESHOLD ─── */
-.thresh-stage{display:flex;align-items:stretch;justify-content:center;gap:0;flex-wrap:wrap;padding:24px 0;}
-.t-box{flex:0 0 190px;padding:18px;background:var(--s1);border:1px solid var(--line);
-  border-radius:var(--r8);display:flex;flex-direction:column;gap:10px;cursor:pointer;
-  transition:.2s;user-select:none;}
-.t-box:hover{border-color:var(--mid);}
-.t-box.active{border-color:rgba(0,200,240,.4);background:rgba(0,200,240,.04);}
-.t-box.compromised{border-color:rgba(255,41,82,.5);background:var(--rg);animation:shk .22s ease;}
-@keyframes shk{0%,100%{transform:translateX(0);}25%{transform:translateX(-5px);}75%{transform:translateX(5px);}}
-.t-box.inactive{opacity:.3;cursor:default;}
-.t-label{font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
-.t-label.a{color:var(--c);}
-.t-label.c{color:var(--r);}
-.t-label.i{color:var(--dim);}
-.t-prf{font-size:.6rem;color:var(--dim);line-height:1.65;word-break:break-all;min-height:40px;}
-.t-prf .ok{color:var(--g);}
-.t-prf .fail{color:var(--r);}
-.t-seed{font-size:.55rem;color:var(--ghost);}
-.agg-col{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:8px;flex:0 0 160px;padding:10px;}
-.agg-ring{width:60px;height:60px;border-radius:50%;border:1.5px solid var(--p);
-  display:flex;align-items:center;justify-content:center;font-size:1.3rem;
-  box-shadow:0 0 24px rgba(157,111,255,.2);}
-.agg-label{font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--p);font-weight:700;}
-.agg-eq{font-size:.58rem;color:var(--dim);text-align:center;line-height:1.6;}
-.flow-col{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:3px;padding:0 4px;padding-bottom:16px;}
-.flow-line{height:1.5px;width:40px;background:var(--line);transition:.3s;}
-.flow-line.on{background:var(--c);}
-.flow-tip{font-size:.4rem;color:var(--line);transition:.3s;}
-.flow-tip.on{color:var(--c);}
-.flow-note{font-size:.5rem;color:var(--dim);text-align:center;line-height:1.4;white-space:nowrap;}
-.thresh-bottom{border-top:1px solid var(--line);padding-top:20px;
-  display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}
-.verdict{font-size:.9rem;font-weight:700;}
+/* FORGE RESULT */
+.forge-box{background:var(--rg);border:1px solid rgba(255,37,71,.3);border-radius:var(--r8);
+  padding:12px 16px;margin-top:10px;}
+.forge-box-ok{background:var(--gg);border-color:rgba(0,217,110,.3);}
+
+/* SECURITY PROPERTIES */
+.prop-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+.prop{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);padding:20px;
+  border-left:3px solid;}
+.prop.c{border-left-color:var(--c);}
+.prop.g{border-left-color:var(--g);}
+.prop.r{border-left-color:var(--r);}
+.prop.p{border-left-color:var(--p);}
+.prop-label{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-bottom:8px;}
+.prop.c .prop-label{color:var(--c);}
+.prop.g .prop-label{color:var(--g);}
+.prop.r .prop-label{color:var(--r);}
+.prop.p .prop-label{color:var(--p);}
+.prop h3{font-family:'Inter',sans-serif;font-size:.95rem;font-weight:700;color:#DDF0FF;margin-bottom:8px;}
+.prop p{font-size:.72rem;color:var(--mid);line-height:1.75;}
+.prop p code{color:var(--c);background:var(--cg);padding:0 4px;border-radius:3px;font-size:.68rem;}
+
+/* THRESHOLD */
+.thresh-wrap{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.thresh-toolbar{padding:14px 20px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.thresh-body{padding:20px;}
+.trustees-row{display:grid;gap:10px;margin-bottom:16px;}
+.tbox{padding:16px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r8);
+  transition:.2s;cursor:pointer;user-select:none;}
+.tbox:hover{border-color:var(--mid);}
+.tbox.act{border-color:rgba(0,191,223,.4);background:rgba(0,191,223,.04);}
+.tbox.comp{border-color:rgba(255,37,71,.45);background:var(--rg);animation:shk .2s ease;}
+@keyframes shk{0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}75%{transform:translateX(4px);}}
+.tbox-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.tbox-id{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;}
+.tbox.act .tbox-id{color:var(--c);}
+.tbox.comp .tbox-id{color:var(--r);}
+.tbox.inactive .tbox-id{color:var(--dim);}
+.tbox-status{font-size:.58rem;padding:2px 7px;border-radius:3px;font-weight:700;}
+.status-act{background:var(--cg);color:var(--c);}
+.status-comp{background:var(--rg);color:var(--r);}
+.status-idle{background:var(--ghost);color:var(--dim);}
+.tbox-prf{font-size:.6rem;color:var(--dim);line-height:1.65;min-height:36px;word-break:break-all;}
+.tbox-prf .ok{color:var(--g);}
+.tbox-prf .fail{color:var(--r);}
+.tbox-seed{font-size:.54rem;color:var(--ghost);margin-top:4px;}
+.rounds-row{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-bottom:14px;}
+.round-box{background:var(--bg);border:1px solid var(--line);border-radius:var(--r8);padding:14px;}
+.round-label{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:8px;font-weight:700;}
+.round-eq{font-size:.62rem;color:var(--mid);line-height:1.7;}
+.round-eq .v{color:var(--c);}
+.round-arrow{text-align:center;color:var(--p);font-size:1.1rem;padding-bottom:14px;}
+.agg-ring{width:52px;height:52px;border-radius:50%;border:1px solid var(--p);
+  display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+  box-shadow:0 0 20px rgba(139,92,246,.2);margin:0 auto 6px;}
+.agg-lbl{font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--p);text-align:center;}
+.thresh-foot{border-top:1px solid var(--line);padding:14px 20px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.verdict{font-size:.88rem;font-weight:700;}
 .verdict.ok{color:var(--g);}
 .verdict.fail{color:var(--r);}
-.crv-detail{font-size:.63rem;color:var(--dim);line-height:1.7;margin-top:6px;}
-.crv-detail .v{color:var(--c);}
-.crv-detail .blocked{color:var(--r);}
+.verdict-sub{font-size:.62rem;color:var(--dim);margin-top:4px;line-height:1.6;}
+.verdict-sub .v{color:var(--c);}
 
-/* ─── MERKLE ─── */
-.merkle-card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
-.merkle-toolbar{padding:14px 20px;border-bottom:1px solid var(--line);
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-#msv{width:100%;height:320px;display:block;}
-.mn-circle{fill:var(--s2);stroke:var(--line);stroke-width:1.5;transition:all .35s;}
-.mn-circle.leaf{stroke:var(--dim);}
-.mn-circle.leaf-on{stroke:var(--y);filter:drop-shadow(0 0 7px rgba(242,178,56,.45));}
-.mn-circle.int-on{stroke:var(--c);filter:drop-shadow(0 0 8px rgba(0,200,240,.4));}
-.mn-circle.root-on{stroke:var(--p);filter:drop-shadow(0 0 12px rgba(157,111,255,.45));}
-.mn-circle.auth{stroke:var(--g);filter:drop-shadow(0 0 8px rgba(0,224,122,.4));}
-.mn-text{font-family:'JetBrains Mono',monospace;font-size:9px;fill:var(--dim);text-anchor:middle;}
-.mn-text.on{fill:var(--ink);}
-.me{stroke:var(--ghost);stroke-width:1.5;fill:none;transition:stroke .35s,stroke-width .35s;}
-.me.on{stroke:var(--c);stroke-width:2;}
-.me.auth{stroke:var(--g);stroke-width:2.5;}
-.merkle-foot{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:20px;flex-wrap:wrap;align-items:center;}
-.mleg{display:flex;align-items:center;gap:6px;font-size:.62rem;color:var(--dim);}
-.mleg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.merkle-root{margin-left:auto;font-size:.62rem;color:var(--dim);}
-.merkle-root span{color:var(--c);}
+/* MERKLE */
+.mcard{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.mtb{padding:12px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+#msv{width:100%;height:300px;display:block;}
+.mn-c{fill:var(--s1);stroke:var(--dim);stroke-width:1.5;transition:all .3s;}
+.mn-c.leaf-on{stroke:var(--y);fill:rgba(240,174,48,.08);filter:drop-shadow(0 0 6px rgba(240,174,48,.4));}
+.mn-c.int-on{stroke:var(--c);fill:rgba(0,191,223,.07);filter:drop-shadow(0 0 6px rgba(0,191,223,.35));}
+.mn-c.root-on{stroke:var(--p);fill:rgba(139,92,246,.07);filter:drop-shadow(0 0 10px rgba(139,92,246,.4));}
+.mn-c.auth{stroke:var(--g);fill:rgba(0,217,110,.07);filter:drop-shadow(0 0 6px rgba(0,217,110,.35));}
+.mn-t{font-family:'JetBrains Mono',monospace;font-size:9px;fill:var(--dim);text-anchor:middle;}
+.mn-t.on{fill:var(--ink);}
+.me{stroke:var(--ghost);stroke-width:1.5;fill:none;transition:all .3s;}
+.me.on{stroke:rgba(0,191,223,.5);stroke-width:1.5;}
+.me.auth{stroke:var(--g);stroke-width:2;}
+.mfoot{padding:10px 18px;border-top:1px solid var(--line);display:flex;gap:18px;flex-wrap:wrap;align-items:center;}
+.mleg{display:flex;align-items:center;gap:5px;font-size:.6rem;color:var(--dim);}
+.mleg-d{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.mroot-val{margin-left:auto;font-size:.6rem;color:var(--dim);}
+.mroot-val span{color:var(--c);}
+#ms{font-size:.63rem;color:var(--mid);}
 
-/* ─── XOR ─── */
-.xor-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
-.xor-card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);padding:22px;display:flex;flex-direction:column;gap:14px;}
-.xor-metric{display:flex;flex-direction:column;gap:5px;}
-.xor-metric-label{font-size:.65rem;color:var(--dim);display:flex;justify-content:space-between;}
-.xor-metric-label span{font-weight:700;}
-.xor-track{height:8px;background:var(--ghost);border-radius:4px;overflow:hidden;}
-.xor-bar{height:100%;width:0;border-radius:4px;transition:width .9s cubic-bezier(.4,0,.2,1);}
-.xor-bar.b{background:linear-gradient(90deg,rgba(255,41,82,.6),var(--r));}
-.xor-bar.u{background:linear-gradient(90deg,rgba(0,224,122,.6),var(--g));}
-.xor-speedup{font-size:3rem;font-weight:700;color:var(--g);line-height:1;letter-spacing:-.04em;}
-.xor-speedup-label{font-size:.65rem;color:var(--dim);margin-top:4px;}
-.xor-speedup-sub{font-size:.6rem;color:var(--ghost);margin-top:2px;}
+/* XOR */
+.xgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;}
+.xcard{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);padding:20px;display:flex;flex-direction:column;gap:12px;}
+.xmet-lbl{font-size:.63rem;color:var(--dim);display:flex;justify-content:space-between;margin-bottom:4px;}
+.xtrack{height:7px;background:var(--ghost);border-radius:4px;overflow:hidden;}
+.xbar{height:100%;width:0;border-radius:4px;transition:width .85s cubic-bezier(.4,0,.2,1);}
+.xbar.b{background:linear-gradient(90deg,rgba(255,37,71,.5),var(--r));}
+.xbar.g{background:linear-gradient(90deg,rgba(0,217,110,.5),var(--g));}
+.xspd{font-size:2.8rem;font-weight:700;color:var(--g);line-height:1;letter-spacing:-.04em;}
+.xspd-lbl{font-size:.63rem;color:var(--dim);margin-top:4px;}
+.xspd-sub{font-size:.58rem;color:var(--ghost);margin-top:2px;}
 
-/* ─── BENCH ─── */
-.bench-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-.bc{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);padding:22px;}
-.bc-hdr{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
-.bc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-.br{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
-.br-l{font-size:.7rem;color:var(--mid);flex:0 0 175px;line-height:1.3;}
-.br-l small{font-size:.58rem;display:block;color:var(--dim);}
-.bt{flex:1;height:6px;background:var(--s2);border-radius:3px;overflow:hidden;}
-.bf{height:100%;width:0;border-radius:3px;transition:width 1.5s cubic-bezier(.4,0,.2,1);}
-.bf.c{background:linear-gradient(90deg,rgba(0,200,240,.5),var(--c));}
-.bf.g{background:linear-gradient(90deg,rgba(0,224,122,.5),var(--g));}
-.bf.y{background:linear-gradient(90deg,rgba(242,178,56,.5),var(--y));}
-.bf.r{background:linear-gradient(90deg,rgba(255,41,82,.5),var(--r));}
-.bv{font-size:.68rem;font-weight:700;width:50px;text-align:right;flex-shrink:0;}
+/* BENCHMARKS */
+.bgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.bc{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);padding:20px;}
+.bc-hdr{font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);
+  margin-bottom:14px;display:flex;align-items:center;gap:7px;}
+.bc-d{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.br{display:flex;align-items:center;gap:9px;margin-bottom:8px;}
+.br-l{font-size:.68rem;color:var(--mid);flex:0 0 170px;line-height:1.3;}
+.br-l small{font-size:.56rem;display:block;color:var(--dim);}
+.bt{flex:1;height:5px;background:var(--ghost);border-radius:3px;overflow:hidden;}
+.bf{height:100%;width:0;border-radius:3px;transition:width 1.4s cubic-bezier(.4,0,.2,1);}
+.bf.c{background:linear-gradient(90deg,rgba(0,191,223,.4),var(--c));}
+.bf.g{background:linear-gradient(90deg,rgba(0,217,110,.4),var(--g));}
+.bf.y{background:linear-gradient(90deg,rgba(240,174,48,.4),var(--y));}
+.bf.r{background:linear-gradient(90deg,rgba(255,37,71,.4),var(--r));}
+.bv{font-size:.66rem;font-weight:700;width:50px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums;}
 .bv.c{color:var(--c);}
 .bv.g{color:var(--g);}
 .bv.y{color:var(--y);}
-.bn{font-size:.6rem;color:var(--ghost);border-top:1px solid var(--ghost);margin-top:10px;padding-top:8px;}
+.bn{font-size:.58rem;color:var(--ghost);border-top:1px solid var(--ghost);margin-top:9px;padding-top:7px;}
 
-/* ─── COMPLEXITY TABLE ─── */
-.cxtable-wrap{overflow-x:auto;margin-top:16px;}
-table.cx{width:100%;border-collapse:collapse;font-size:.72rem;}
-table.cx th{padding:10px 14px;background:var(--s2);color:var(--dim);font-weight:500;
+/* COMPLEXITY TABLE */
+.cxtw{overflow-x:auto;margin-top:14px;}
+table.cx{width:100%;border-collapse:collapse;font-size:.7rem;}
+table.cx th{padding:9px 12px;background:rgba(9,22,34,.8);color:var(--dim);font-weight:500;
   text-align:left;border-bottom:1px solid var(--line);}
-table.cx td{padding:10px 14px;border-bottom:1px solid var(--ghost);color:var(--ink);}
+table.cx td{padding:9px 12px;border-bottom:1px solid var(--ghost);}
 table.cx td:first-child{color:var(--c);font-weight:700;}
 table.cx td:nth-child(2){color:var(--mid);}
-table.cx td:nth-child(3){font-family:'JetBrains Mono',monospace;color:var(--y);}
+table.cx td:nth-child(3){color:var(--y);}
 table.cx tr:last-child td{border-bottom:none;}
-table.cx tr.divrow td{border-top:1px solid var(--line);}
+table.cx tr.dr td{border-top:1px solid var(--line);}
 
-/* ─── OPT CARDS ─── */
-.opt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+/* OPT GRID */
+.ogrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
 .oc{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
-.oc-top{padding:20px 20px 0;}
-.oc-tag{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-bottom:9px;}
-.oc-tag.c{color:var(--c);}
-.oc-tag.g{color:var(--g);}
-.oc-tag.y{color:var(--y);}
-.oc h3{font-family:'Inter',sans-serif;font-size:1rem;font-weight:700;margin-bottom:8px;color:#E8F4FF;}
-.oc p{font-size:.75rem;color:var(--mid);line-height:1.7;margin-bottom:14px;}
+.oc-t{padding:18px 18px 0;}
+.oc-tag{font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;font-weight:800;margin-bottom:8px;}
+.oc h3{font-family:'Inter',sans-serif;font-size:.93rem;font-weight:700;margin-bottom:7px;color:#DDF0FF;}
+.oc p{font-size:.72rem;color:var(--mid);line-height:1.72;margin-bottom:12px;}
+.oc p code{font-size:.68rem;color:var(--c);}
 .oc-cmp{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);}
-.ocol{background:var(--s2);padding:14px 14px;}
-.ocol-l{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost);margin-bottom:5px;}
-.ocol-v{font-size:1.35rem;font-weight:700;line-height:1;}
-.ocol-v.b{color:var(--r);}
-.ocol-v.a{color:var(--g);}
-.ocol-s{font-size:.6rem;color:var(--dim);margin-top:5px;line-height:1.45;}
-.oc-badge{padding:9px;text-align:center;font-size:.68rem;font-weight:700;letter-spacing:.03em;}
-.oc-badge.c{background:var(--cg);color:var(--c);}
-.oc-badge.g{background:var(--gg);color:var(--g);}
-.oc-badge.y{background:var(--yg);color:var(--y);}
+.ocol{background:rgba(9,22,34,.8);padding:12px;}
+.ocol-l{font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost);margin-bottom:4px;}
+.ocol-v{font-size:1.25rem;font-weight:700;line-height:1;}
+.ocol-v.bad{color:var(--r);}
+.ocol-v.good{color:var(--g);}
+.ocol-s{font-size:.58rem;color:var(--dim);margin-top:4px;line-height:1.45;}
+.oc-foot{padding:8px;text-align:center;font-size:.66rem;font-weight:700;}
+.oc-foot.c{background:var(--cg);color:var(--c);}
+.oc-foot.g{background:var(--gg);color:var(--g);}
+.oc-foot.y{background:var(--yg);color:var(--y);}
 
-/* ─── CODE ─── */
-.code-block{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
-.code-hdr{background:var(--s2);padding:10px 18px;border-bottom:1px solid var(--line);
-  display:flex;align-items:center;gap:10px;font-size:.65rem;color:var(--dim);}
-.code-fn{color:var(--c);}
-pre{padding:20px 22px;font-size:.77rem;line-height:1.85;overflow-x:auto;color:var(--mid);}
+/* CODE */
+.cb{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.cb-hdr{background:rgba(9,22,34,.8);padding:9px 16px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:9px;font-size:.63rem;color:var(--dim);}
+.cb-fn{color:var(--c);}
+pre{padding:18px 20px;font-size:.75rem;line-height:1.85;overflow-x:auto;color:var(--mid);}
 pre .kw{color:var(--p);}
 pre .fn{color:var(--c);}
 pre .cm{color:var(--dim);}
 pre .st{color:var(--g);}
 pre .nu{color:var(--y);}
 
-/* ─── FOOTER ─── */
-footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index:1;}
-.foot-w{max-width:1200px;margin:0 auto;padding:0 28px;
-  display:flex;justify-content:space-between;align-items:center;gap:16px;
-  font-size:.68rem;color:var(--dim);flex-wrap:wrap;}
-.foot-w a:hover{color:var(--c);}
+/* FOOTER */
+footer{border-top:1px solid var(--line);padding:26px 0;}
+.fw{max-width:1200px;margin:0 auto;padding:0 24px;
+  display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;
+  font-size:.66rem;color:var(--dim);}
+.fw a:hover{color:var(--c);}
 
-/* ─── REVEAL ─── */
-.rv{opacity:0;transform:translateY(12px);transition:.5s ease;}
+/* SCROLL REVEAL */
+.rv{opacity:0;transform:translateY(10px);transition:.45s ease;}
 .rv.in{opacity:1;transform:none;}
 
-/* ─── STRIPED SECTIONS ─── */
-.sec-alt{background:var(--s1);border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
-
-@media(max-width:900px){
-  .hero-inner{grid-template-columns:1fr;}
-  .hero-panel{display:none;}
-  .ots-grid{grid-template-columns:1fr;}
-  .bench-grid{grid-template-columns:1fr;}
-  .opt-grid{grid-template-columns:1fr;}
-  .xor-grid{grid-template-columns:1fr;}
-  .thresh-stage{gap:8px;}
-  .flow-col{padding:0 2px;padding-bottom:12px;}
-  .flow-line{width:20px;}
+@media(max-width:860px){
+  .hero-inner,.og,.xgrid,.bgrid,.ogrid,.prop-grid{grid-template-columns:1fr;}
+  .hero-inner .hp{display:none;}
+  .rounds-row{grid-template-columns:1fr;}
+  .round-arrow{display:none;}
 }
 </style>
 </head>
 <body>
 
-<!-- ══════════ NAV ══════════ -->
 <nav>
-  <div class="nav-w">
-    <div class="logo">
-      <span class="logo-main">hash-sig</span><span class="logo-sep">/</span><span class="logo-sub">distributed</span>
-    </div>
-    <div class="nav-r">
+  <div class="nw">
+    <div class="logo"><span>hash-sig</span><span>/</span><span>distributed</span></div>
+    <div class="nr">
       <a href="#ots" class="na">OTS</a>
+      <a href="#security" class="na">Security</a>
       <a href="#threshold" class="na">Threshold</a>
       <a href="#merkle" class="na">Merkle</a>
       <a href="#perf" class="na">Perf</a>
-      <a href="https://github.com/iabhi92/crypto-project" target="_blank" class="na gh">GitHub ↗</a>
+      <a href="https://github.com/iabhi92/Crypto-Project" target="_blank" class="na gh">GitHub ↗</a>
     </div>
   </div>
 </nav>
 
-<!-- ══════════ HERO ══════════ -->
+<!-- HERO -->
 <section class="hero">
   <canvas id="hc"></canvas>
   <div class="hero-inner">
-    <div class="hero-left">
-      <div class="eyebrow">IACR CiC 2/2/24 &nbsp;·&nbsp; Kelsey, Lang &amp; Lucks &nbsp;·&nbsp; Python</div>
-      <h1>Distributed<br>Hash-Based<br><span class="hl">Threshold</span><br>Signatures</h1>
-      <p class="hero-desc">
-        k trustees sign in two PRF rounds — no individual seed reconstructs the signing key.
-        CRV masking ensures a coalition of size k−1 learns nothing about the aggregate.
-        AggregatorVerify() is identical to stateful HBS: verifier is unaware of the distributed protocol.
+    <div>
+      <div class="eyebrow">IACR CiC 2/2/24 &nbsp;·&nbsp; Kelsey, Lang &amp; Lucks &nbsp;·&nbsp; Python + Web Crypto</div>
+      <h1>Distributed<br>Hash-Based<br><em>Threshold</em><br>Signatures</h1>
+      <p class="hero-sub">
+        k trustees contribute PRF shares across two rounds. No individual seed is sufficient to reconstruct the signing key — the aggregator holds a CRV-masked copy, and each trustee's share masks one row of the chain matrix.
+        <strong>AggregatorVerify is standard OTS verification: the verifier is unaware of the distributed protocol.</strong>
       </p>
-      <div class="hero-params">
+      <div class="hero-chips">
         <span class="tag c">N=128 bits</span>
         <span class="tag d">W=8 · CHAIN_LEN=256</span>
-        <span class="tag d">A+C=18 chains</span>
-        <span class="tag g">288 B signatures</span>
-        <span class="tag d">stdlib only · 73 tests</span>
+        <span class="tag d">A+C=18 chains per key</span>
+        <span class="tag g">288-byte signatures</span>
+        <span class="tag d">stdlib · 73 tests · zero deps</span>
       </div>
       <div class="hero-btns">
         <button class="btn c" onclick="scrollToOTS()">▶ winternitz_keygen()</button>
         <a href="https://cic.iacr.org/p/2/2/24/pdf" target="_blank" class="btn d">Paper ↗</a>
       </div>
     </div>
-
-    <div class="hero-panel">
-      <div class="hp-title">Live computation</div>
-      <div class="hp-counter">
-        <div class="hp-counter-label">SHA-256 ops</div>
-        <div class="hp-counter-val" id="hops">0</div>
-        <div class="hp-counter-sub">crypto.subtle.digest · all values computed here</div>
+    <div class="hp">
+      <div class="hp-hdr">
+        <span>Live SHA-256 counter</span>
+        <div class="hp-live"><div class="hp-dot"></div><span>LIVE</span></div>
       </div>
-      <div class="hp-rows">
-        <div class="hp-row"><span class="hp-row-label">Keygen (Python)</span><span class="hp-row-val y">3.43 ms</span></div>
-        <div class="hp-row"><span class="hp-row-label">Sign (Python)</span><span class="hp-row-val g">0.003 ms</span></div>
-        <div class="hp-row"><span class="hp-row-label">Verify (Python)</span><span class="hp-row-val c">1.42 ms</span></div>
-        <div class="hp-divider"></div>
-        <div class="hp-row"><span class="hp-row-label">AggSign k=2 (Python)</span><span class="hp-row-val y">7.28 ms</span></div>
-        <div class="hp-row"><span class="hp-row-label">AggVerify k=2</span><span class="hp-row-val g">1.53 ms</span></div>
-        <div class="hp-divider"></div>
-        <div class="hp-row"><span class="hp-row-label">_xor_many() speedup</span><span class="hp-row-val c">5.9×</span></div>
-        <div class="hp-row"><span class="hp-row-label">BLAKE2b keygen</span><span class="hp-row-val g">1.18× faster</span></div>
-      </div>
-      <div class="live-badge"><span class="live-dot"></span>Keygen running updates this counter</div>
+      <div class="hp-big" id="hops">0</div>
+      <div class="hp-sub">crypto.subtle.digest — computed in this browser tab</div>
+      <div class="hp-row"><span class="hp-rl">Gen (Python, FAST)</span><span class="hp-rv y">3.43 ms</span></div>
+      <div class="hp-row"><span class="hp-rl">Sign</span><span class="hp-rv g">0.003 ms</span></div>
+      <div class="hp-row"><span class="hp-rl">Verify</span><span class="hp-rv c">1.42 ms</span></div>
+      <div class="hp-div"></div>
+      <div class="hp-row"><span class="hp-rl">AggSign k=2 D=8</span><span class="hp-rv y">7.28 ms</span></div>
+      <div class="hp-row"><span class="hp-rl">AggVerify k=2</span><span class="hp-rv g">1.53 ms</span></div>
+      <div class="hp-div"></div>
+      <div class="hp-row"><span class="hp-rl">_xor_many() speedup</span><span class="hp-rv c">5.9×</span></div>
+      <div class="hp-row"><span class="hp-rl">BLAKE2b vs SHA-256</span><span class="hp-rv g">1.18× faster</span></div>
     </div>
   </div>
 </section>
 
-<!-- ══════════ OTS ══════════ -->
+<!-- OTS -->
 <section id="ots">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-n">01</span>
-    <span class="sl-t c">WINTERNITZ OTS — KEYGEN · SIGN · VERIFY</span>
-    <div class="sl-line"></div>
+    <span class="sl-idx">01</span>
+    <span class="sl-tag c">WINTERNITZ OTS — KEYGEN · SIGN · VERIFY · FORGE</span>
+    <div class="sl-rule"></div>
   </div>
-  <h2 class="rv">Full protocol. Real SHA-256. Every run is fresh.</h2>
+  <h2 class="rv">Winternitz chains computed live. Every key is unique.</h2>
   <p class="sdesc rv">
-    <code>hash_lms(tweak, *data)</code> = SHA-256(tweak₀_be32 ‖ … ‖ data₀ ‖ data₁ ‖ …)[:N_BYTES].
-    Chain step: <code>hash_lms([2, i, j, keyId], val)</code>.
-    Keygen: 18 chains × 255 steps = 4,590 calls. Sign: chain lookup at digit position b_all[i].
-    Verify: hash forward CHAIN_LEN−1−b_all[i] steps, reconstruct PK.
+    <code>hash_lms(tweak, *data)</code> = SHA-256(tweak₀_be32 ‖ tweak₁_be32 ‖ … ‖ data)[:N_BYTES].
+    Keygen walks 18 chains of 255 steps each (4,590 calls). Sign looks up chain position <code>b_all[i]</code> — O(A+C) total.
+    Verify continues from <code>Z[i]</code> for <code>CHAIN_LEN−1−b_all[i]</code> more steps, reconstructing the public key tip.
+    The checksum digits prevent digit-increment forgery: increasing any message digit forces the checksum to decrease, requiring the adversary to also advance a checksum chain beyond the signed position.
   </p>
-
-  <!-- pipeline indicator -->
   <div class="pipeline rv" id="pipeline">
-    <div class="pipe-step active" id="ps-0" onclick="startKeygen()">
-      <div class="pipe-num">1</div>
-      <div><div class="pipe-label">KEYGEN</div><div class="pipe-sub">winternitz_keygen(keyId)</div></div>
+    <div class="ps active" id="ps-0" onclick="startKeygen()">
+      <div class="ps-n">1</div>
+      <div><div class="ps-label">KEYGEN</div><span class="ps-fn">winternitz_keygen(keyId)</span></div>
     </div>
-    <div class="pipe-step" id="ps-1" onclick="if(keyState)startSign()">
-      <div class="pipe-num">2</div>
-      <div><div class="pipe-label">SIGN</div><div class="pipe-sub">winternitz_sign(M, R, keyId, seeds)</div></div>
+    <div class="ps" id="ps-1" onclick="if(keyState)startSign()">
+      <div class="ps-n">2</div>
+      <div><div class="ps-label">SIGN</div><span class="ps-fn">winternitz_sign(M, R, seeds)</span></div>
     </div>
-    <div class="pipe-step" id="ps-2" onclick="if(sigState)startVerify()">
-      <div class="pipe-num">3</div>
-      <div><div class="pipe-label">VERIFY</div><div class="pipe-sub">winternitz_verify(M, R, Z, keyId)</div></div>
+    <div class="ps" id="ps-2" onclick="if(sigState)startVerify()">
+      <div class="ps-n">3</div>
+      <div><div class="ps-label">VERIFY</div><span class="ps-fn">winternitz_verify(M, R, Z)</span></div>
+    </div>
+    <div class="ps" id="ps-3" onclick="if(sigState&&keyState)startForge()">
+      <div class="ps-n" style="border-color:var(--r);color:var(--r)">4</div>
+      <div><div class="ps-label" style="color:var(--r)">FORGE &amp; FAIL</div><span class="ps-fn">tamper Z[0], verify → INVALID</span></div>
     </div>
   </div>
-
-  <div class="ots-grid rv">
-    <!-- LEFT -->
-    <div class="ots-left">
-      <div class="params-card">
-        <div class="params-card-hdr">Protocol parameters</div>
-        <table class="params-table">
+  <div class="og rv">
+    <div class="ol">
+      <div class="pcard">
+        <div class="pcard-hdr">Protocol constants — utils.py</div>
+        <table class="ptab">
           <tr><td>N_BYTES</td><td>16</td></tr>
           <tr><td>W</td><td>8</td></tr>
-          <tr><td>CHAIN_LEN</td><td>256</td></tr>
-          <tr><td>A (msg digits)</td><td>16</td></tr>
-          <tr><td>C (csum digits)</td><td>2</td></tr>
-          <tr><td>A+C (chains)</td><td>18</td></tr>
-          <tr><td>keyId</td><td id="keyid-val">—</td></tr>
+          <tr><td>CHAIN_LEN (2^W)</td><td>256</td></tr>
+          <tr><td>A = N_BYTES (msg digits)</td><td>16</td></tr>
+          <tr><td>C = ⌈log₂(A·(2^W−1))/W⌉</td><td>2</td></tr>
+          <tr><td>A+C (chains per key)</td><td>18</td></tr>
+          <tr><td>keyId (this run)</td><td id="kid-val">—</td></tr>
         </table>
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        <label style="font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)">Message</label>
-        <input class="inp" id="msg-inp" value="hello distributed world" style="font-family:'JetBrains Mono',monospace;font-size:.78rem;background:var(--s2);border:1px solid var(--line);border-radius:var(--r6);padding:9px 12px;color:var(--ink);outline:none;transition:.15s;" onfocus="this.style.borderColor='var(--c)'" onblur="this.style.borderColor='var(--line)'">
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <label style="font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)">Message M</label>
+        <input class="txt-inp" id="msg-inp" value="hello distributed world">
       </div>
-      <div class="ots-btn-col">
+      <div class="btn-col">
         <button class="btn c" id="kg-btn" onclick="startKeygen()">winternitz_keygen()</button>
         <button class="btn g" id="sg-btn" onclick="startSign()" disabled>winternitz_sign()</button>
         <button class="btn d" id="vf-btn" onclick="startVerify()" disabled>winternitz_verify()</button>
-        <button class="btn r" onclick="resetOTS()" style="margin-top:2px;">↺ reset</button>
+        <button class="btn r" id="fg-btn" onclick="startForge()" disabled>tamper Z[0] &amp; verify</button>
+        <button class="btn d" onclick="resetOTS()">↺ reset</button>
       </div>
-      <div class="info-box">
-        <div class="info-box-label">PK = hash_lms([0, keyId], *tips)</div>
-        <div class="info-hex c" id="pk-out">—</div>
+      <div class="ibox">
+        <div class="ibox-l">PK = hash_lms([0, keyId], *tips)</div>
+        <div class="ihex c" id="pk-out">—</div>
       </div>
-      <div class="info-box">
-        <div class="info-box-label">Signature Z[0..2] (of 18)</div>
-        <div class="info-hex g" id="sig-out">—</div>
+      <div class="ibox">
+        <div class="ibox-l">Z[0..2] of 18 chain elements</div>
+        <div class="ihex g" id="sig-out">—</div>
       </div>
-      <div class="info-box">
-        <div class="info-box-label">Verification</div>
-        <div id="vf-out" style="font-size:.75rem;color:var(--mid);">Run keygen → sign → verify.</div>
+      <div class="ibox">
+        <div class="ibox-l">Verification result</div>
+        <div id="vf-out" style="font-size:.73rem;color:var(--mid)">Run keygen → sign → verify.</div>
       </div>
+      <div id="forge-result" style="display:none;"></div>
     </div>
-
-    <!-- RIGHT: terminal -->
     <div>
       <div class="term">
-        <div class="term-bar">
-          <div class="term-dot" style="background:#FF5F57"></div>
-          <div class="term-dot" style="background:#FFBD2E"></div>
-          <div class="term-dot" style="background:#28CA41"></div>
-          <span class="term-fname">distributed_signing.py — crypto.subtle.digest('SHA-256', …)</span>
+        <div class="tbar">
+          <div class="td" style="background:#FF5F57"></div>
+          <div class="td" style="background:#FFBD2E"></div>
+          <div class="td" style="background:#28CA41"></div>
+          <span class="tfn">winternitz_ots.py — crypto.subtle.digest('SHA-256', buf)</span>
         </div>
-        <div class="term-body" id="term-out">
-          <div class="tl"><span class="tl-ts">---</span><span class="tl-m dim2"># hash_lms(tweak, *data) = SHA-256(tweak_be32 || data)[:N_BYTES]</span></div>
-          <div class="tl"><span class="tl-ts">---</span><span class="tl-m dim2"># All values are computed live — different on every run.</span></div>
-          <div class="tl"><span class="tl-ts">---</span><span class="tl-m dim2"># Click winternitz_keygen() to begin.</span></div>
+        <div class="tbody" id="term-out">
+          <div class="tl"><span class="ts">---</span><span class="tm dim"># hash_lms(tweak, *data) = SHA-256(be32(tweak) || data)[:N_BYTES]</span></div>
+          <div class="tl"><span class="ts">---</span><span class="tm dim"># Values computed live in this tab — different every run.</span></div>
+          <div class="tl"><span class="ts">---</span><span class="tm dim"># Click winternitz_keygen() to begin.</span></div>
         </div>
       </div>
-
-      <!-- digit decomposition -->
-      <div id="dig-wrap" class="digit-wrap" style="display:none;">
-        <div class="digit-card">
-          <div class="digit-card-hdr">
-            <span class="digit-card-hdr-l">Digit decomposition — b_all[0..17]</span>
-            <span class="digit-card-hdr-r">W=8: each byte of h is one digit ∈ [0, 255]</span>
+      <div id="dig-wrap" style="display:none;">
+        <div class="dtw">
+          <div class="dth">
+            <span class="dth-l">Digit decomposition — b_all[0..17]</span>
+            <span class="dth-r">W=8: each byte of h(M) is one digit ∈ [0, 255]</span>
           </div>
-          <div class="digit-scroll">
+          <div class="dtscroll">
             <table class="dt">
-              <thead><tr><th>i</th><th>role</th><th>b_all[i]</th><th>chain position</th><th>verify steps remaining</th><th>Z[i] prefix</th></tr></thead>
+              <thead><tr><th>i</th><th>role</th><th>b_all[i]</th><th>sign depth</th><th>verify steps left</th><th>Z[i] (4 B)</th></tr></thead>
               <tbody id="dt-body"></tbody>
             </table>
           </div>
-          <div class="csum-note" id="csum-note"></div>
+          <div class="cfoot" id="csum-note"></div>
         </div>
       </div>
     </div>
@@ -558,139 +553,181 @@ footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index
 </div>
 </section>
 
-<!-- ══════════ THRESHOLD ══════════ -->
-<section id="threshold" class="sec-alt">
+<!-- SECURITY PROPERTIES -->
+<section id="security" class="sec-stripe">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-n">02</span>
-    <span class="sl-t r">KK_SETUPCONTRIBUTION — TWO-ROUND PRF PROTOCOL</span>
-    <div class="sl-line"></div>
+    <span class="sl-idx">02</span>
+    <span class="sl-tag p">SECURITY PROPERTIES</span>
+    <div class="sl-rule"></div>
   </div>
-  <h2 class="rv">Click a trustee to compromise it.</h2>
+  <h2 class="rv">Four properties. Each grounded in the construction.</h2>
   <p class="sdesc rv">
-    Round 1: trustee t computes <code>Rt = PRF_R(seed_t, keyId)</code>, <code>CHKt = PRF_Chk(seed_t, keyId)</code>.
-    Aggregator: <code>CRV.R = XOR(R_base, R₀, R₁, …)</code>.
-    A coalition of k−1 trustees observes a set of PRF outputs that are jointly uniform — the masked key is indistinguishable from random.
-    With fewer than k active trustees, <code>KK_Aggregator_Sign()</code> aborts.
+    Security reduces to second-preimage resistance of SHA-256 under the hash-based OTS proof of Buchmann et al., extended by Kelsey, Lang &amp; Lucks to the distributed setting. No number-theoretic assumptions.
   </p>
-
-  <div class="card rv" style="background:var(--s2);border:1px solid var(--line);border-radius:var(--r8);padding:24px;max-width:880px;">
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap;">
-      <span style="font-size:.65rem;color:var(--dim);">Threshold k =</span>
-      <input type="range" id="k-rng" min="1" max="2" value="2" oninput="onKChange()" style="accent-color:var(--c);width:100px;cursor:pointer;">
-      <span id="k-val" style="font-size:.9rem;font-weight:700;color:var(--c);">2</span>
-      <span style="font-size:.65rem;color:var(--dim);">of 2 trustees required</span>
-      <button class="btn d" style="margin-left:auto;" onclick="resetThresh()">↺ reset</button>
+  <div class="prop-grid rv">
+    <div class="prop c">
+      <div class="prop-label">One-Time Security</div>
+      <h3>A Winternitz key can sign exactly one message.</h3>
+      <p>Signing at digit position b[i] exposes chain elements 0 … b[i]−1 of chain i (they are derivable from Z[i] by forward hashing). A second message with a smaller digit d' < b[i] at position i would require the adversary to produce Z'[i] at position d', which is a preimage of Z[i] under the chain function — computationally equivalent to SHA-256 second preimage.</p>
     </div>
+    <div class="prop g">
+      <div class="prop-label">Threshold Security</div>
+      <h3>Any k−1 trustees learn nothing about the signing key.</h3>
+      <p>Each trustee's PRF contribution <code>PRF_Chain(seed_t, keyId, i, j)</code> acts as a one-time pad over the aggregator's masked key <code>CRV.SK[i][j]</code>. A coalition of k−1 trustees observes a set of PRF images that are jointly uniform over the output space — the unmasked key <code>SK[i][j]</code> has negligible mutual information with their joint view.</p>
+    </div>
+    <div class="prop r">
+      <div class="prop-label">Forgery Resistance</div>
+      <h3>Advancing any digit forces the checksum to decrease.</h3>
+      <p>The Winternitz checksum is <code>csum = A×(CHAIN_LEN−1) − Σb[i]</code>. Incrementing any message digit by δ decreases csum by δ, requiring the adversary to produce a chain element at a lower position for the checksum chains. That is a SHA-256 preimage — the Forge &amp; Fail demo above demonstrates this directly: flipping one bit in Z[0] yields a reconstructed PK that does not match the stored value.</p>
+    </div>
+    <div class="prop p">
+      <div class="prop-label">Verifier Transparency</div>
+      <h3>AggregatorVerify is identical to standard OTS verification.</h3>
+      <p>The verifier receives <code>(R, Z, PATH)</code> and calls <code>lamport.Verify(R, Z, M, KeyID)</code> followed by a Merkle path check — the same function used for non-distributed stateful HBS. The number of signing trustees k, the CRV structure, and the PRF contributions are invisible to the verifier. Verification cost is O(OTS verify + log D), independent of k.</p>
+    </div>
+  </div>
+</div>
+</section>
 
-    <div class="thresh-stage" id="ts"></div>
-
-    <div class="thresh-bottom">
-      <div>
-        <div class="verdict" id="tv">SECURE — both trustees active</div>
-        <div class="crv-detail" id="td" style="margin-top:6px;"></div>
-      </div>
+<!-- THRESHOLD -->
+<section id="threshold">
+<div class="w">
+  <div class="sl rv">
+    <span class="sl-idx">03</span>
+    <span class="sl-tag r">KK_AGGREGATORSIGN — TWO-ROUND PRF PROTOCOL</span>
+    <div class="sl-rule"></div>
+  </div>
+  <h2 class="rv">k-of-n trustees. Click a trustee to mark it compromised.</h2>
+  <p class="sdesc rv">
+    Round 1: each active trustee t computes <code>Rt = PRF_R(seed_t, keyId)</code> and <code>CHKt = PRF_Chk(seed_t, keyId)</code>, sends both to the aggregator.
+    Aggregator derives <code>CRV.R = XOR(R_base, R₀, … Rₙ)</code> and per-trustee integrity tokens <code>CRV.CHK[t] = XOR(PRF_Auth(seed_t, R), CHK₀, CHK₁, …)</code>.
+    Round 2: trustee t receives <code>R'</code>, verifies it against CHK_Prime (MAC check via <code>KK_Auth</code>), then contributes <code>Zt[i] = WINTER(h, SK_share_t)</code>.
+    Aggregator XOR-combines contributions: <code>Z[i] = XOR(CRV.SK[i][b], Zt₀[i], Zt₁[i], …)</code>.
+  </p>
+  <div class="thresh-wrap rv">
+    <div class="thresh-toolbar">
+      <span style="font-size:.63rem;color:var(--dim)">Threshold k =</span>
+      <input type="range" id="k-rng" min="1" max="3" value="2" oninput="onKChange()" style="accent-color:var(--c);width:90px;cursor:pointer;">
+      <span id="k-val" style="font-size:.9rem;font-weight:700;color:var(--c)">2</span>
+      <span style="font-size:.63rem;color:var(--dim)">of 3 trustees required</span>
+      <button class="btn d" style="margin-left:auto;" onclick="resetThresh()">↺ reset</button>
       <button class="btn c" id="ts-btn" onclick="runThresh()">KK_Aggregator_Sign()</button>
     </div>
+    <div class="thresh-body">
+      <div class="trustees-row" id="trustees-row" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="rounds-row" id="rounds-row">
+        <div class="round-box">
+          <div class="round-label">Round 1 — PRF contributions</div>
+          <div class="round-eq" id="r1-eq"><span style="color:var(--dim)">Run KK_Aggregator_Sign() to see computed values.</span></div>
+        </div>
+        <div class="round-arrow"><div class="agg-ring">⚡</div><div class="agg-lbl">Aggregator</div></div>
+        <div class="round-box">
+          <div class="round-label">Round 2 — XOR combination</div>
+          <div class="round-eq" id="r2-eq"><span style="color:var(--dim)">CRV.R = XOR(R_base, R₀, R₁, …)</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="thresh-foot">
+      <div>
+        <div class="verdict" id="tv">—</div>
+        <div class="verdict-sub" id="td"></div>
+      </div>
+    </div>
   </div>
 </div>
 </section>
 
-<!-- ══════════ MERKLE ══════════ -->
-<section id="merkle">
+<!-- MERKLE -->
+<section id="merkle" class="sec-stripe">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-n">03</span>
-    <span class="sl-t g">MT_CONSTRUCT — MERKLE AUTHENTICATION TREE</span>
-    <div class="sl-line"></div>
+    <span class="sl-idx">04</span>
+    <span class="sl-tag g">MT_CONSTRUCT — MERKLE AUTHENTICATION TREE</span>
+    <div class="sl-rule"></div>
   </div>
-  <h2 class="rv">D=4 leaves. Real SHA-256 at every node.</h2>
+  <h2 class="rv">D=4 leaves. Internal nodes computed with real SHA-256.</h2>
   <p class="sdesc rv">
-    Leaf i is the Winternitz OTS public key for slot i.
-    Internal node: <code>hash_lms([3, level, pos], left, right)</code>.
-    MT_MakePath(i) returns the siblings along the root path — two nodes for height-2 tree.
-    Verifier recomputes: <code>h₀₁ = hash_lms([3,0,0], leaf[0], leaf[1])</code>, <code>root = hash_lms([3,1,0], h₀₁, h₂₃)</code>. Click a leaf after building to highlight its authentication path.
+    Leaf i = Winternitz OTS public key for slot i, computed as <code>hash_lms([0, i], *tips_i)</code>.
+    Internal node at level ℓ, position p: <code>hash_lms([3, ℓ, p], left, right)</code>.
+    MT_MakePath(i) extracts the log₂(D) = 2 siblings needed to recompute the root.
+    Verifier reconstructs: <code>h₀₁ = hash_lms([3,0,0], leaf[0], leaf[1])</code>, then <code>root = hash_lms([3,1,0], h₀₁, h₂₃)</code> — two SHA-256 calls regardless of which leaf signed. Click a leaf after building to see its authentication path highlighted.
   </p>
-
-  <div class="merkle-card rv">
-    <div class="merkle-toolbar">
+  <div class="mcard rv">
+    <div class="mtb">
       <button class="btn c" onclick="buildMerkle()">MT_Construct(D=4)</button>
       <button class="btn d" onclick="resetMerkle()">↺ reset</button>
-      <span style="font-size:.65rem;color:var(--mid);margin-left:4px;" id="ms">Build to see real hashes.</span>
+      <span id="ms">Build to see computed hash values.</span>
     </div>
-    <svg id="msv" viewBox="0 0 820 320"></svg>
-    <div class="merkle-foot">
-      <div class="mleg"><div class="mleg-dot" style="background:var(--y)"></div>OTS pk (leaf)</div>
-      <div class="mleg"><div class="mleg-dot" style="background:var(--c)"></div>Internal hash</div>
-      <div class="mleg"><div class="mleg-dot" style="background:var(--p)"></div>Root</div>
-      <div class="mleg"><div class="mleg-dot" style="background:var(--g)"></div>Auth path</div>
-      <div class="merkle-root" id="mr-display"></div>
+    <svg id="msv" viewBox="0 0 820 300"></svg>
+    <div class="mfoot">
+      <div class="mleg"><div class="mleg-d" style="background:var(--y)"></div>OTS pk (leaf)</div>
+      <div class="mleg"><div class="mleg-d" style="background:var(--c)"></div>Internal node</div>
+      <div class="mleg"><div class="mleg-d" style="background:var(--p)"></div>Root</div>
+      <div class="mleg"><div class="mleg-d" style="background:var(--g)"></div>Auth path</div>
+      <div class="mroot-val" id="mr-v"></div>
     </div>
   </div>
 </div>
 </section>
 
-<!-- ══════════ PERF ══════════ -->
-<section id="perf" class="sec-alt">
+<!-- PERF -->
+<section id="perf">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-n">04</span>
-    <span class="sl-t y">BENCHMARK_RESULTS.CSV — SHA-256, FAST MODE</span>
-    <div class="sl-line"></div>
+    <span class="sl-idx">05</span>
+    <span class="sl-tag y">BENCHMARKS — benchmark_results.csv</span>
+    <div class="sl-rule"></div>
   </div>
-  <h2 class="rv">Measured on Apple M-series. Python, FAST mode.</h2>
+  <h2 class="rv">Measured on Apple M-series. FAST mode (sha256, stdlib).</h2>
   <p class="sdesc rv">
-    AggregatorVerify() is O(OTS verify + log D) regardless of k — verifier cost is independent of the number of signing trustees.
-    AggregatorSign() scales with k (PRF round-trips), not with D (Merkle tree depth).
+    AggregatorSign cost is O(k × (A+C) × CHAIN_LEN + k log D) — dominated by the k OTS signing operations, not the tree depth. AggregatorVerify cost is O(OTS verify + log D), independent of k: a verifier processing a distributed signature runs the same code as for a non-distributed stateful HBS signature.
   </p>
-
-  <div class="bench-grid rv">
+  <div class="bgrid rv">
     <div class="bc">
-      <div class="bc-hdr"><div class="bc-dot" style="background:var(--c)"></div>Winternitz OTS (single key)</div>
-      <div class="br"><div class="br-l">Gen<small>18 chains × 255 steps</small></div><div class="bt"><div class="bf y" data-w="55"></div></div><div class="bv y">3.43 ms</div></div>
+      <div class="bc-hdr"><div class="bc-d" style="background:var(--c)"></div>Winternitz OTS primitives</div>
+      <div class="br"><div class="br-l">Gen<small>18 chains × 255 steps each</small></div><div class="bt"><div class="bf y" data-w="55"></div></div><div class="bv y">3.43 ms</div></div>
       <div class="br"><div class="br-l">Sign<small>chain lookup at b_all[i]</small></div><div class="bt"><div class="bf g" data-w="1"></div></div><div class="bv g">0.003 ms</div></div>
-      <div class="br"><div class="br-l">Verify<small>hash forward, reconstruct PK</small></div><div class="bt"><div class="bf c" data-w="22"></div></div><div class="bv c">1.42 ms</div></div>
-      <div class="bn">Sign = O(A+C) lookups. Verify = O((A+C)×CHAIN_LEN) hashes.</div>
+      <div class="br"><div class="br-l">Verify<small>forward hash + PK reconstruct</small></div><div class="bt"><div class="bf c" data-w="22"></div></div><div class="bv c">1.42 ms</div></div>
+      <div class="bn">Sign: O(A+C) table lookups. Verify: O((A+C)×CHAIN_LEN) forward hashes.</div>
     </div>
     <div class="bc">
-      <div class="bc-hdr"><div class="bc-dot" style="background:var(--g)"></div>Stateful HBS (non-distributed baseline)</div>
-      <div class="br"><div class="br-l">StatefulSign<small>D=128 leaves</small></div><div class="bt"><div class="bf g" data-w="7"></div></div><div class="bv g">0.44 ms</div></div>
+      <div class="bc-hdr"><div class="bc-d" style="background:var(--g)"></div>Stateful HBS (non-distributed baseline)</div>
+      <div class="br"><div class="br-l">StatefulSign<small>D=128</small></div><div class="bt"><div class="bf g" data-w="7"></div></div><div class="bv g">0.44 ms</div></div>
       <div class="br"><div class="br-l">StatefulVerify<small>D=128</small></div><div class="bt"><div class="bf c" data-w="26"></div></div><div class="bv c">1.67 ms</div></div>
-      <div class="bn">Sign adds O(log D) Merkle path lookup over OTS sign.</div>
+      <div class="bn">StatefulSign uses precomputed key chain (Gen() eager mode) — O(log D) Merkle path added.</div>
     </div>
     <div class="bc">
-      <div class="bc-hdr"><div class="bc-dot" style="background:var(--r)"></div>AggregatorSign — distributed</div>
+      <div class="bc-hdr"><div class="bc-d" style="background:var(--r)"></div>AggregatorSign — distributed k trustees</div>
       <div class="br"><div class="br-l">k=2, D=8</div><div class="bt"><div class="bf c" data-w="59"></div></div><div class="bv c">7.28 ms</div></div>
       <div class="br"><div class="br-l">k=2, D=16</div><div class="bt"><div class="bf c" data-w="60"></div></div><div class="bv c">7.37 ms</div></div>
       <div class="br"><div class="br-l">k=3, D=8</div><div class="bt"><div class="bf y" data-w="89"></div></div><div class="bv y">11.02 ms</div></div>
       <div class="br"><div class="br-l">k=3, D=16</div><div class="bt"><div class="bf y" data-w="90"></div></div><div class="bv y">11.10 ms</div></div>
-      <div class="bn">Cost is O(k×(A+C)×CHAIN_LEN + k log D). Scales with k, not D.</div>
+      <div class="bn">Cost grows linearly with k. Doubling D (tree depth) adds &lt;0.1 ms — tree contribution is negligible.</div>
     </div>
     <div class="bc">
-      <div class="bc-hdr"><div class="bc-dot" style="background:var(--g)"></div>AggregatorVerify</div>
+      <div class="bc-hdr"><div class="bc-d" style="background:var(--g)"></div>AggregatorVerify — independent of k</div>
       <div class="br"><div class="br-l">k=2, D=8</div><div class="bt"><div class="bf g" data-w="24"></div></div><div class="bv g">1.53 ms</div></div>
       <div class="br"><div class="br-l">k=2, D=32</div><div class="bt"><div class="bf g" data-w="26"></div></div><div class="bv g">1.66 ms</div></div>
       <div class="br"><div class="br-l">k=3, D=8</div><div class="bt"><div class="bf g" data-w="26"></div></div><div class="bv g">1.63 ms</div></div>
       <div class="br"><div class="br-l">k=3, D=32</div><div class="bt"><div class="bf g" data-w="27"></div></div><div class="bv g">1.74 ms</div></div>
-      <div class="bn">Verify = O(OTS verify + log D). Independent of k — identical interface to standard HBS.</div>
+      <div class="bn">Verify cost is identical regardless of k — verifier is unaware of the number of signing trustees.</div>
     </div>
   </div>
-
-  <!-- complexity table -->
-  <div class="rv" style="margin-top:32px;">
-    <div style="font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:12px;">Asymptotic complexity — from complexity_comparison.csv</div>
-    <div class="cxtable-wrap">
+  <div class="rv" style="margin-top:28px;">
+    <div style="font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:10px;">Asymptotic complexity — complexity_comparison.csv</div>
+    <div class="cxtw">
       <table class="cx">
-        <thead><tr><th>Operation</th><th>Context</th><th>Time complexity</th></tr></thead>
+        <thead><tr><th>Operation</th><th>Inputs</th><th>Time complexity</th></tr></thead>
         <tbody>
           <tr><td>Gen</td><td>single OTS key</td><td>O(A × CHAIN_LEN)</td></tr>
           <tr><td>Sign</td><td>single OTS key</td><td>O(A + C)</td></tr>
           <tr><td>Verify</td><td>single OTS key</td><td>O((A+C) × CHAIN_LEN)</td></tr>
-          <tr class="divrow"><td>MT_Construct</td><td>D leaves</td><td>O(D)</td></tr>
+          <tr class="dr"><td>MT_Construct</td><td>D leaves</td><td>O(D)</td></tr>
           <tr><td>MT_MakePath</td><td>D leaves</td><td>O(D + log D)</td></tr>
           <tr><td>MT_Verify</td><td>D leaves</td><td>O(log D)</td></tr>
-          <tr class="divrow"><td>StatefulSign</td><td>D leaves</td><td>O(OTS sign + log D)</td></tr>
-          <tr class="divrow"><td>AggregatorSign</td><td>D leaves, k trustees</td><td>O(k × (A+C) × CHAIN_LEN + k log D)</td></tr>
+          <tr class="dr"><td>StatefulSign</td><td>D leaves</td><td>O(OTS sign + log D)</td></tr>
+          <tr class="dr"><td>AggregatorSign</td><td>D leaves, k trustees</td><td>O(k × (A+C) × CHAIN_LEN + k log D)</td></tr>
           <tr><td>AggregatorVerify</td><td>D leaves</td><td>O(OTS verify + log D)</td></tr>
         </tbody>
       </table>
@@ -699,43 +736,39 @@ footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index
 </div>
 </section>
 
-<!-- ══════════ XOR ══════════ -->
-<section id="xor">
+<!-- XOR -->
+<section id="xor" class="sec-stripe">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-n">05</span>
-    <span class="sl-t c">_XOR_MANY() — MEASURED ON YOUR MACHINE</span>
-    <div class="sl-line"></div>
+    <span class="sl-idx">06</span>
+    <span class="sl-tag c">_XOR_MANY() OPTIMISATION — MEASURED ON THIS MACHINE</span>
+    <div class="sl-rule"></div>
   </div>
-  <h2 class="rv">Byte loop vs Uint32Array. Measured live.</h2>
+  <h2 class="rv">int.from_bytes XOR dispatches once at C level. Measured live.</h2>
   <p class="sdesc rv">
-    Python's <code>int.from_bytes(v,'big') ^ acc</code> is a single C-level operation — the interpreter dispatches once regardless of length.
-    A byte loop dispatches 16 times per 16-byte value.
-    JS equivalent: viewing <code>Uint8Array</code> as <code>Uint32Array</code> reduces 16 XOR iterations to 4 (one 32-bit word per iteration).
-    Click below to measure the actual speedup on this machine.
+    In CPython, <code>int.from_bytes(v, 'big') ^ acc</code> is a single bytecode instruction dispatched to C regardless of byte length. A byte-loop over 16 bytes dispatches 16 times. The JS equivalent: reinterpret the <code>Uint8Array</code> as a <code>Uint32Array</code> (same buffer, no copy) and XOR 4 words instead of 16 bytes. Click below to measure the actual ratio on this CPU.
   </p>
-
-  <div class="xor-grid rv">
-    <div class="xor-card">
-      <div style="font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);">_xor_many(10 × 16-byte inputs) — 5000 iterations</div>
-      <div class="xor-metric">
-        <div class="xor-metric-label"><span>Byte loop</span><span id="xbv" style="color:var(--r)">—</span></div>
-        <div class="xor-track"><div class="xor-bar b" id="xbf"></div></div>
-      </div>
-      <div class="xor-metric">
-        <div class="xor-metric-label"><span>Uint32Array view</span><span id="xuv" style="color:var(--g)">—</span></div>
-        <div class="xor-track"><div class="xor-bar u" id="xuf"></div></div>
+  <div class="xgrid rv">
+    <div class="xcard">
+      <div style="font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)">_xor_many(10 × 16-byte inputs) — 5,000 iterations</div>
+      <div>
+        <div class="xmet-lbl"><span>Byte loop (16 iterations/call)</span><span id="xbv" style="color:var(--r)">—</span></div>
+        <div class="xtrack"><div class="xbar b" id="xbf"></div></div>
       </div>
       <div>
-        <div class="xor-speedup" id="xspd">—×</div>
-        <div class="xor-speedup-label" id="xsub">Click to measure on this machine</div>
-        <div class="xor-speedup-sub">Python result: 5.9× · 20,000 runs · CPython overhead model</div>
+        <div class="xmet-lbl"><span>Uint32Array view (4 iterations/call)</span><span id="xuv" style="color:var(--g)">—</span></div>
+        <div class="xtrack"><div class="xbar g" id="xuf"></div></div>
+      </div>
+      <div>
+        <div class="xspd" id="xspd">—×</div>
+        <div class="xspd-lbl" id="xsub">Click to measure on this machine</div>
+        <div class="xspd-sub">Python (CPython, M-series): 5.9× · 20,000 runs · int.from_bytes model</div>
       </div>
       <button class="btn c" onclick="runXOR()" id="xbtn">Run _xor_many() benchmark</button>
     </div>
-    <div class="code-block">
-      <div class="code-hdr"><span>distributed_signing.py</span><span class="code-fn">· _xor_many()</span></div>
-<pre><span class="cm"># int XOR: one C-level op regardless of byte count</span>
+    <div class="cb">
+      <div class="cb-hdr"><span>distributed_signing.py</span><span class="cb-fn">· _xor_many()</span></div>
+<pre><span class="cm"># int XOR: single C dispatch regardless of byte width</span>
 <span class="kw">def</span> <span class="fn">_xor_many</span>(values):
     <span class="kw">if not</span> values: <span class="kw">return</span> <span class="st">b""</span>
     n = len(values[<span class="nu">0</span>])
@@ -746,7 +779,7 @@ footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index
         acc ^= int.from_bytes(v, <span class="st">"big"</span>)
     <span class="kw">return</span> acc.to_bytes(n, <span class="st">"big"</span>)
 
-<span class="cm"># JS equivalent (Uint32Array view — same idea)</span>
+<span class="cm"># JS: view same buffer as Uint32Array — no allocation</span>
 <span class="cm"># const out = new Uint32Array(N_BYTES / 4);</span>
 <span class="cm"># for (const a of inputs) {</span>
 <span class="cm">#   const v = new Uint32Array(a.buffer, a.byteOffset);</span>
@@ -757,91 +790,91 @@ footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index
 </div>
 </section>
 
-<!-- ══════════ OPTS ══════════ -->
-<section id="opts" class="sec-alt">
+<!-- OPTIMISATIONS -->
+<section id="opts">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-n">06</span>
-    <span class="sl-t y">THREE MEASURED OPTIMISATIONS</span>
-    <div class="sl-line"></div>
+    <span class="sl-idx">07</span>
+    <span class="sl-tag y">THREE MEASURED OPTIMISATIONS</span>
+    <div class="sl-rule"></div>
   </div>
-  <h2 class="rv">Each one benchmarked. None theoretical.</h2>
-  <div class="opt-grid rv">
+  <h2 class="rv">Each one benchmarked. No theoretical claims.</h2>
+  <div class="ogrid rv">
     <div class="oc">
-      <div class="oc-top">
-        <div class="oc-tag c">01 · _xor_many()</div>
+      <div class="oc-t">
+        <div class="oc-tag" style="color:var(--c)">01 · _xor_many()</div>
         <h3>Integer XOR fast path</h3>
-        <p>Replaces a 16-iteration byte loop with <code style="font-size:.72rem;color:var(--c)">int.from_bytes + ^</code>. CPython's interpreter dispatches once per call regardless of integer width. Measured over 20,000 runs, 10 × 16-byte inputs per call.</p>
+        <p>Replaces a per-byte <code>^</code> loop with <code>int.from_bytes + ^</code>. CPython's integer XOR is a single C-level operation — bitwidth does not change dispatch cost. Measured over 20,000 runs with 10 × 16-byte inputs per call.</p>
       </div>
       <div class="oc-cmp">
-        <div class="ocol"><div class="ocol-l">Byte loop</div><div class="ocol-v b">6.59<span style="font-size:.68rem"> μs</span></div><div class="ocol-s">for b in zip(*vals):<br>&nbsp;&nbsp;acc ^= b</div></div>
-        <div class="ocol"><div class="ocol-l">int XOR</div><div class="ocol-v a">1.10<span style="font-size:.68rem"> μs</span></div><div class="ocol-s">int.from_bytes(v, 'big')<br>acc ^= …</div></div>
+        <div class="ocol"><div class="ocol-l">Byte loop</div><div class="ocol-v bad">6.59<span style="font-size:.65rem"> μs</span></div><div class="ocol-s">for b in zip(*vals):<br>&nbsp;&nbsp;acc ^= b</div></div>
+        <div class="ocol"><div class="ocol-l">int XOR</div><div class="ocol-v good">1.10<span style="font-size:.65rem"> μs</span></div><div class="ocol-s">acc ^= int.from_bytes<br>(v, 'big')</div></div>
       </div>
-      <div class="oc-badge c">5.9× faster · measured · 20,000 runs</div>
+      <div class="oc-foot c">5.9× faster — measured — 20,000 runs</div>
     </div>
     <div class="oc">
-      <div class="oc-top">
-        <div class="oc-tag g">02 · BLAKE2b backend</div>
-        <h3>Hash backend swap</h3>
-        <p>Single-line change: <code style="font-size:.72rem;color:var(--c)">HASH_BACKEND = "blake2b"</code>. BLAKE2b has lower per-call overhead on 16-byte inputs. Security reduces to collision resistance — the hash function is a drop-in replacement.</p>
+      <div class="oc-t">
+        <div class="oc-tag" style="color:var(--g)">02 · BLAKE2b backend</div>
+        <h3>Hash function swap</h3>
+        <p>Single-line change: <code>HASH_BACKEND = "blake2b"</code>. BLAKE2b has lower per-call overhead on 16-byte inputs due to a smaller internal state and faster finalization on short messages. Security reduces to collision resistance — the hash-based OTS proof is hash-agnostic.</p>
       </div>
       <div class="oc-cmp">
-        <div class="ocol"><div class="ocol-l">SHA-256 keygen</div><div class="ocol-v b">3.70<span style="font-size:.68rem"> ms</span></div><div class="ocol-s">HASH_BACKEND =<br>"sha256"</div></div>
-        <div class="ocol"><div class="ocol-l">BLAKE2b keygen</div><div class="ocol-v a">3.14<span style="font-size:.68rem"> ms</span></div><div class="ocol-s">HASH_BACKEND =<br>"blake2b"</div></div>
+        <div class="ocol"><div class="ocol-l">SHA-256 keygen</div><div class="ocol-v bad">3.70<span style="font-size:.65rem"> ms</span></div><div class="ocol-s">HASH_BACKEND =<br>"sha256"</div></div>
+        <div class="ocol"><div class="ocol-l">BLAKE2b keygen</div><div class="ocol-v good">3.14<span style="font-size:.65rem"> ms</span></div><div class="ocol-s">HASH_BACKEND =<br>"blake2b"</div></div>
       </div>
-      <div class="oc-badge g">1.18× faster keygen · same security proof</div>
+      <div class="oc-foot g">1.18× faster keygen — same security proof structure</div>
     </div>
     <div class="oc">
-      <div class="oc-top">
-        <div class="oc-tag y">03 · GenLazy()</div>
-        <h3>Lazy chain evaluation</h3>
-        <p><code style="font-size:.72rem;color:var(--c)">Gen()</code> precomputes all 18 × 256 chain elements at keygen. <code style="font-size:.72rem;color:var(--c)">GenLazy()</code> stores only the 18 seeds and walks the chain at sign time. Same PK, same signature format, same verification.</p>
+      <div class="oc-t">
+        <div class="oc-tag" style="color:var(--y)">03 · GenLazy()</div>
+        <h3>Deferred chain evaluation</h3>
+        <p><code>Gen()</code> precomputes all 18 × 256 chain positions at keygen, storing a 73 KB key matrix. <code>GenLazy()</code> stores only the 18 × 16-byte seeds (288 bytes) and walks each chain at sign time, shifting the 4,590-call cost from keygen to sign. Same PK, same signature format, same verify path.</p>
       </div>
       <div class="oc-cmp">
-        <div class="ocol"><div class="ocol-l">Gen() · eager</div><div class="ocol-v b">73 <span style="font-size:.68rem">KB</span></div><div class="ocol-s">18 × 256 × 16 B<br>Sign: 0.003 ms</div></div>
-        <div class="ocol"><div class="ocol-l">GenLazy() · lazy</div><div class="ocol-v a">288 <span style="font-size:.68rem">B</span></div><div class="ocol-s">18 × 16 B seeds<br>Sign: 1.62 ms</div></div>
+        <div class="ocol"><div class="ocol-l">Gen() key size</div><div class="ocol-v bad">73 <span style="font-size:.65rem">KB</span></div><div class="ocol-s">18 × 256 × 16 B<br>Sign: 0.003 ms</div></div>
+        <div class="ocol"><div class="ocol-l">GenLazy() key size</div><div class="ocol-v good">288 <span style="font-size:.65rem">B</span></div><div class="ocol-s">18 × 16 B seeds<br>Sign: 1.62 ms</div></div>
       </div>
-      <div class="oc-badge y">256× smaller private key storage</div>
+      <div class="oc-foot y">256× smaller private key — sign cost shifts to 1.62 ms</div>
     </div>
   </div>
 </div>
 </section>
 
-<!-- ══════════ CODE ══════════ -->
-<section id="code">
+<!-- CODE -->
+<section id="code" class="sec-stripe">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-n">07</span>
-    <span class="sl-t c">SOURCE — CRITICAL PATHS</span>
-    <div class="sl-line"></div>
+    <span class="sl-idx">08</span>
+    <span class="sl-tag c">SOURCE — CRITICAL PATHS</span>
+    <div class="sl-rule"></div>
   </div>
-  <h2 class="rv">The functions that matter.</h2>
-  <div class="rv" style="display:grid;gap:14px;">
-    <div class="code-block">
-      <div class="code-hdr"><span>hash.py</span><span class="code-fn">· hash_lms() — domain-separated SHA-256</span></div>
+  <h2 class="rv">The two functions that carry all protocol complexity.</h2>
+  <div class="rv" style="display:grid;gap:12px;">
+    <div class="cb">
+      <div class="cb-hdr"><span>hash.py</span><span class="cb-fn">· hash_lms() — domain-separated SHA-256</span></div>
 <pre><span class="kw">def</span> <span class="fn">hash_lms</span>(tweak, *data):
     h = hashlib.sha256()
-    <span class="kw">for</span> t <span class="kw">in</span> tweak:          <span class="cm"># each int → 4-byte big-endian prefix</span>
+    <span class="kw">for</span> t <span class="kw">in</span> tweak:
         <span class="kw">if</span> isinstance(t, int):
-            h.update(t.to_bytes(<span class="nu">4</span>, <span class="st">"big"</span>))
+            h.update(t.to_bytes(<span class="nu">4</span>, <span class="st">"big"</span>))   <span class="cm"># tweak ints → big-endian 4-byte prefix</span>
         <span class="kw">else</span>:
             h.update(t)
     <span class="kw">for</span> d <span class="kw">in</span> data:
         h.update(d)
-    <span class="kw">return</span> h.digest()</pre>
+    <span class="kw">return</span> h.digest()                          <span class="cm"># 32 B; callers slice [:N_BYTES]</span></pre>
     </div>
-    <div class="code-block">
-      <div class="code-hdr"><span>distributed_signing.py</span><span class="code-fn">· KK_SetupContribution() — each trustee runs this once during setup</span></div>
+    <div class="cb">
+      <div class="cb-hdr"><span>distributed_signing.py</span><span class="cb-fn">· KK_SetupContribution() — each trustee calls this during setup</span></div>
 <pre><span class="kw">def</span> <span class="fn">KK_SetupContribution</span>(seed, KeyID, R, path_lens, sk_shape):
     rows, cols = sk_shape
     <span class="kw">return</span> {
-        <span class="st">"Rt"</span>:    <span class="fn">PRF_R</span>(seed, KeyID, N_BYTES),       <span class="cm"># tweak (30, keyId)</span>
-        <span class="st">"CHKt"</span>:  <span class="fn">PRF_Chk</span>(seed, KeyID, N_BYTES),     <span class="cm"># tweak (31, keyId)</span>
-        <span class="st">"Auth"</span>:  <span class="fn">PRF_Auth</span>(seed, KeyID, R),          <span class="cm"># tweak (32, keyId)</span>
+        <span class="st">"Rt"</span>:    <span class="fn">PRF_R</span>(seed, KeyID, N_BYTES),       <span class="cm"># tweak (30, keyId) — masks R_base</span>
+        <span class="st">"CHKt"</span>:  <span class="fn">PRF_Chk</span>(seed, KeyID, N_BYTES),     <span class="cm"># tweak (31, keyId) — round-2 integrity</span>
+        <span class="st">"Auth"</span>:  <span class="fn">PRF_Auth</span>(seed, KeyID, R),          <span class="cm"># tweak (32, keyId) — binds R to seed</span>
         <span class="st">"PATHt"</span>: [<span class="fn">PRF_Path</span>(seed, KeyID, idx, n)
                   <span class="kw">for</span> idx, n <span class="kw">in</span> enumerate(path_lens)],
         <span class="st">"SKt"</span>:   [[<span class="fn">PRF_Chain</span>(seed, KeyID, i, j, N_BYTES)
-                   <span class="kw">for</span> j <span class="kw">in</span> range(cols)]
+                   <span class="kw">for</span> j <span class="kw">in</span> range(cols)]      <span class="cm"># one-time pad over CRV.SK[i][j]</span>
                   <span class="kw">for</span> i <span class="kw">in</span> range(rows)],
     }</pre>
     </div>
@@ -850,11 +883,11 @@ footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index
 </section>
 
 <footer>
-  <div class="foot-w">
-    <span>Kelsey, Lang &amp; Lucks (2024) · IACR CiC 2/2/24 · Python implementation</span>
+  <div class="fw">
+    <span>Kelsey, Lang &amp; Lucks (2024) · IACR CiC 2/2/24 · Python + stdlib</span>
     <span>
-      <a href="https://github.com/iabhi92/crypto-project" target="_blank">github</a> ·
-      <a href="https://iabhi92.github.io" target="_blank">portfolio</a> ·
+      <a href="https://github.com/iabhi92/Crypto-Project" target="_blank">github</a>
+      &nbsp;·&nbsp;
       <a href="https://cic.iacr.org/p/2/2/24/pdf" target="_blank">paper</a>
     </span>
   </div>
@@ -862,12 +895,12 @@ footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index
 
 <script>
 'use strict';
-// ── Constants (match utils.py)
+// ── Protocol constants (match utils.py exactly)
 const N_BYTES=16,W=8,A=16,C=2,AC=18,CHAIN_LEN=256;
 const T_PK=0,T_MSG=1,T_CHAIN=2,T_MT=3,T_PRF_R=30,T_PRF_CHK=31;
 let hashTotal=0;
 
-// ── hash_lms — exact reimplementation of hash.py
+// ── hash_lms — exact port of hash.py hash_lms()
 async function hash_lms(tweak,...data){
   let n=tweak.length*4;
   for(const d of data)n+=d.length;
@@ -882,70 +915,86 @@ async function hash_lms(tweak,...data){
   return new Uint8Array(raw).slice(0,N_BYTES);
 }
 
-// ── Chain
+// ── Chain walk: seed → chain[j] via j steps
 async function chain_el(seed,i,steps,kid){
   let v=new Uint8Array(seed);
   for(let j=1;j<=steps;j++)v=await hash_lms([T_CHAIN,i,j,kid],v);
   return v;
 }
 
-// ── Keygen
+// ── Keygen: 18 seeds, 18 chains × 255 steps, hash tips → PK
 async function keygen(kid,onChain){
   const seeds=Array.from({length:AC},()=>{const s=new Uint8Array(N_BYTES);crypto.getRandomValues(s);return s;});
-  const tips=await Promise.all(seeds.map((s,i)=>chain_el(s,i,CHAIN_LEN-1,kid).then(t=>{onChain&&onChain(i,t);return t;})));
+  const tips=await Promise.all(seeds.map((s,i)=>
+    chain_el(s,i,CHAIN_LEN-1,kid).then(t=>{onChain&&onChain(i,t);return t;})
+  ));
   const pk=await hash_lms([T_PK,kid],...tips);
   return{pk,seeds,tips,kid};
 }
 
-// ── Sign
-function digs(h){return Array.from(h);}
-function csum(d){const cs=A*(CHAIN_LEN-1)-d.reduce((a,b)=>a+b,0);const b=new Uint8Array(2);new DataView(b.buffer).setUint16(0,cs,false);return{digits:Array.from(b),cs};}
+// ── Digit decomposition
+function digits(h){return Array.from(h);}
+function checksum(d){
+  const cs=A*(CHAIN_LEN-1)-d.reduce((a,b)=>a+b,0);
+  const b=new Uint8Array(2);new DataView(b.buffer).setUint16(0,cs,false);
+  return{dc:Array.from(b),cs};
+}
+
+// ── Sign: chain lookup at b_all[i]
 async function sign(mb,R,kid,seeds,onStep){
   const h=await hash_lms([T_MSG,kid],R,mb);
-  const dm=digs(h);const{digits:dc,cs}=csum(dm);
+  const dm=digits(h);const{dc,cs}=checksum(dm);
   const all=[...dm,...dc];
-  const Z=await Promise.all(all.map((d,i)=>chain_el(seeds[i],i,d,kid).then(z=>{onStep&&onStep(i,d,z);return z;})));
+  const Z=await Promise.all(all.map((d,i)=>
+    chain_el(seeds[i],i,d,kid).then(z=>{onStep&&onStep(i,d,z);return z;})
+  ));
   return{R,Z,h,dm,dc,all,cs};
 }
 
-// ── Verify
-async function verify(mb,R,Z,kid,onStep){
+// ── Verify: hash forward CHAIN_LEN-1-b_all[i] steps, reconstruct PK
+async function verifyOTS(mb,R,Z,kid){
   const h=await hash_lms([T_MSG,kid],R,mb);
-  const dm=digs(h);const{digits:dc}=csum(dm);
+  const dm=digits(h);const{dc}=checksum(dm);
   const all=[...dm,...dc];
   const Yp=await Promise.all(Z.map((zi,i)=>{
     const d=all[i];
-    return(async()=>{let v=new Uint8Array(zi);for(let j=d+1;j<CHAIN_LEN;j++)v=await hash_lms([T_CHAIN,i,j,kid],v);onStep&&onStep(i,CHAIN_LEN-1-d,v);return v;})();
+    return(async()=>{
+      let v=new Uint8Array(zi);
+      for(let j=d+1;j<CHAIN_LEN;j++)v=await hash_lms([T_CHAIN,i,j,kid],v);
+      return v;
+    })();
   }));
   return await hash_lms([T_PK,kid],...Yp);
 }
 
-// ── PRF
-async function prf_r(seed,kid){const ol=new Uint8Array(4);new DataView(ol.buffer).setUint32(0,N_BYTES,false);return hash_lms([T_PRF_R,kid],seed,ol);}
-async function prf_chk(seed,kid){const ol=new Uint8Array(4);new DataView(ol.buffer).setUint32(0,N_BYTES,false);return hash_lms([T_PRF_CHK,kid],seed,ol);}
+// ── PRF functions (match distributed_signing.py tweaks)
+const OL4=()=>{const b=new Uint8Array(4);new DataView(b.buffer).setUint32(0,N_BYTES,false);return b;};
+async function prf_r(seed,kid){return hash_lms([T_PRF_R,kid],seed,OL4());}
+async function prf_chk(seed,kid){return hash_lms([T_PRF_CHK,kid],seed,OL4());}
 
-// ── Utils
-function hex(b){return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');}
+// ── Utilities
+const hex=b=>Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');
 function fhex(b,g=4){const h=hex(b);const r=[];for(let i=0;i<h.length;i+=g*2)r.push(h.slice(i,i+g*2));return r.join(' ');}
-function randB(n){const b=new Uint8Array(n);crypto.getRandomValues(b);return b;}
-function xorB(...a){const o=new Uint8Array(a[0].length);for(const x of a)for(let i=0;i<o.length;i++)o[i]^=x[i];return o;}
+const randB=n=>{const b=new Uint8Array(n);crypto.getRandomValues(b);return b;};
+function xorArr(...arrs){const o=new Uint8Array(arrs[0].length);for(const a of arrs)for(let i=0;i<o.length;i++)o[i]^=a[i];return o;}
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 
-// ── Terminal
+// ── Terminal log (navy theme)
 let t0=0;
 function tlog(html){
   const el=document.getElementById('term-out');
-  const ts=t0?((Date.now()-t0)/1000).toFixed(3)+'s':'---';
+  const elapsed=t0?((Date.now()-t0)/1000).toFixed(3)+'s':'---';
   const d=document.createElement('div');
-  d.className='tl';d.innerHTML=`<span class="tl-ts">[${ts}]</span><span class="tl-m">${html}</span>`;
+  d.className='tl';
+  d.innerHTML=`<span class="ts">[${elapsed}]</span><span class="tm">${html}</span>`;
   el.appendChild(d);el.scrollTop=el.scrollHeight;
 }
 function tclear(){document.getElementById('term-out').innerHTML='';t0=Date.now();}
 
-// ── Pipeline state
-function setPipe(step,state){
-  const el=document.getElementById(`ps-${step}`);
-  el.className='pipe-step'+(state?' '+state:'');
+// ── Pipeline state indicator
+function setPipe(i,cls){
+  const el=document.getElementById(`ps-${i}`);
+  el.className='ps'+(cls?' '+cls:'');
 }
 
 // ── OTS state
@@ -953,35 +1002,34 @@ let keyState=null,sigState=null;
 
 async function startKeygen(){
   const kid=0|(Math.random()*0xFFFF);
-  document.getElementById('keyid-val').textContent=kid;
-  document.getElementById('kg-btn').disabled=true;
-  document.getElementById('sg-btn').disabled=true;
-  document.getElementById('vf-btn').disabled=true;
+  document.getElementById('kid-val').textContent=kid;
+  ['kg-btn','sg-btn','vf-btn','fg-btn'].forEach(id=>document.getElementById(id).disabled=true);
   document.getElementById('pk-out').textContent='—';
   document.getElementById('sig-out').textContent='—';
   document.getElementById('vf-out').textContent='Run keygen → sign → verify.';
   document.getElementById('vf-out').style.color='var(--mid)';
   document.getElementById('dig-wrap').style.display='none';
-  setPipe(0,'active');setPipe(1,'');setPipe(2,'');
+  document.getElementById('forge-result').style.display='none';
   keyState=null;sigState=null;
+  setPipe(0,'active');setPipe(1,'');setPipe(2,'');setPipe(3,'');
 
   tclear();
   tlog(`<span class="kw">winternitz_keygen</span>(keyId=<span class="num">${kid}</span>)`);
   tlog(`N_BYTES=<span class="num">${N_BYTES}</span>  W=<span class="num">${W}</span>  A=<span class="num">${A}</span>  C=<span class="num">${C}</span>  CHAIN_LEN=<span class="num">${CHAIN_LEN}</span>`);
-  tlog(`Generating <span class="num">18</span> seeds — crypto.getRandomValues(16 B) each`);
+  tlog(`Generating <span class="num">18</span> seeds via crypto.getRandomValues()`);
   await wait(20);
 
   const chainDone={};
   const t_=performance.now();
   const res=await keygen(kid,(i,tip)=>{
     chainDone[i]=1;
-    const done=Object.keys(chainDone).length;
-    tlog(`chain[<span class="num">${String(i).padStart(2,'0')}</span>]  tip → <span class="val">${fhex(tip)}</span>  <span class="dim2">(${done}/18 complete)</span>`);
+    const n=Object.keys(chainDone).length;
+    tlog(`chain[<span class="num">${String(i).padStart(2)}</span>] tip → <span class="val">${fhex(tip)}</span>  <span class="dim">(${n}/18)</span>`);
   });
   const ms=(performance.now()-t_).toFixed(1);
-  tlog(`<span class="num">4590</span> SHA-256 calls complete. Browser: <span class="num">${ms}ms</span>  Python: <span class="num">3.43ms</span>`);
+  tlog(`<span class="num">4590</span> SHA-256 calls. Browser: <span class="num">${ms} ms</span>  Python FAST: <span class="num">3.43 ms</span>`);
   tlog(`PK = <span class="kw">hash_lms</span>([<span class="num">0</span>, <span class="num">${kid}</span>], *tips)`);
-  tlog(`   = <span class="cyan">${fhex(res.pk)}</span>`);
+  tlog(`   = <span class="ink b">${fhex(res.pk)}</span>`);
 
   document.getElementById('pk-out').textContent=fhex(res.pk);
   keyState=res;
@@ -997,56 +1045,56 @@ async function startSign(){
   const R=randB(N_BYTES);
   document.getElementById('sg-btn').disabled=true;
   document.getElementById('vf-btn').disabled=true;
+  document.getElementById('fg-btn').disabled=true;
   document.getElementById('sig-out').textContent='—';
   document.getElementById('dig-wrap').style.display='none';
   sigState=null;
-  setPipe(1,'active');setPipe(2,'');
+  setPipe(1,'active');setPipe(2,'');setPipe(3,'');
 
   tlog(`&nbsp;`);
-  tlog(`<span class="kw">winternitz_sign</span>(M=<span class="st">"${msg}"</span>, keyId=<span class="num">${keyState.kid}</span>)`);
-  tlog(`R = <span class="val">${fhex(R)}</span>  <span class="dim2">(fresh random nonce)</span>`);
+  tlog(`<span class="kw">winternitz_sign</span>(M=<span class="hi">"${msg}"</span>, keyId=<span class="num">${keyState.kid}</span>)`);
+  tlog(`R = <span class="val">${fhex(R)}</span>  <span class="dim">(fresh random nonce)</span>`);
   tlog(`h = <span class="kw">hash_lms</span>([<span class="num">1</span>, <span class="num">${keyState.kid}</span>], R, M)`);
 
-  const steps={};
-  const res=await sign(mb,R,keyState.kid,keyState.seeds,(i,d,z)=>{steps[i]={d,z};});
-
-  tlog(`h = <span class="val">${fhex(res.h)}</span>`);
+  const res=await sign(mb,R,keyState.kid,keyState.seeds);
+  tlog(`h = <span class="ink">${fhex(res.h)}</span>`);
   tlog(`b[0..15] = [${res.dm.map(d=>`<span class="num">${d}</span>`).join(' ')}]`);
   tlog(`csum = <span class="num">${A}</span>×<span class="num">255</span>−Σb = <span class="num">${res.cs}</span>  →  digits [<span class="num">${res.dc[0]}</span>, <span class="num">${res.dc[1]}</span>]`);
   tlog(`Z[0] = chain[0][<span class="num">${res.all[0]}</span>] = <span class="val">${fhex(res.Z[0])}</span>`);
   tlog(`Z[1] = chain[1][<span class="num">${res.all[1]}</span>] = <span class="val">${fhex(res.Z[1])}</span>`);
-  tlog(`<span class="dim2">… 16 more chain elements</span>`);
-  tlog(`<span class="hi">✓ Signature: R (16 B) + Z×18 (288 B) = 304 B total</span>`);
+  tlog(`<span class="dim">… 16 more chain elements</span>`);
+  tlog(`<span class="hi b">✓ Signature R(16B) + Z×18(288B) = 304 B total</span>`);
 
-  document.getElementById('sig-out').textContent=`R:    ${fhex(R)}\nZ[0]: ${fhex(res.Z[0])}\nZ[1]: ${fhex(res.Z[1])}\nZ[2]: ${fhex(res.Z[2])}\n… +15 more`;
+  document.getElementById('sig-out').textContent=
+    `R:    ${fhex(R)}\nZ[0]: ${fhex(res.Z[0])}\nZ[1]: ${fhex(res.Z[1])}\nZ[2]: ${fhex(res.Z[2])}\n… +15 chains`;
 
-  // Digit table
-  const tb=document.getElementById('dt-body');
-  tb.innerHTML='';
+  // Digit decomposition table
+  const tb=document.getElementById('dt-body');tb.innerHTML='';
   res.all.forEach((d,i)=>{
     const rem=CHAIN_LEN-1-d;
     const isCsum=i>=A;
     const pct=d/255*100;
-    const remPct=rem/255*100;
-    const color=`hsl(${120-d/255*120},75%,58%)`;
+    const hue=120-d/255*120;
+    const clr=`hsl(${hue},70%,55%)`;
     const tr=document.createElement('tr');
-    if(isCsum)tr.className='cs-row';
-    tr.innerHTML=`
-      <td style="color:var(--mid)">${i}</td>
+    if(isCsum)tr.className='csr';
+    tr.innerHTML=`<td style="color:var(--mid)">${i}</td>
       <td style="color:var(--dim);font-size:.6rem">${isCsum?`csum[${i-A}]`:`b[${i}]`}</td>
-      <td style="font-weight:700;color:${color}">${d}</td>
-      <td class="chain-bar-cell"><div class="chain-bar-wrap"><div class="chain-bar-fill" style="width:${pct}%;background:${color}"></div></div><div style="font-size:.55rem;color:var(--dim);margin-top:2px">sign@${d}</div></td>
-      <td><span style="font-size:.7rem;color:${rem>200?'var(--r)':rem>100?'var(--y)':'var(--g)';};font-weight:700">${rem}</span></td>
-      <td style="color:var(--c);font-size:.6rem">${hex(res.Z[i]).slice(0,8)}…</td>`;
+      <td style="font-weight:700;color:${clr}">${d}</td>
+      <td><div class="cbar"><div class="cbf" style="width:${pct}%;background:${clr}"></div></div></td>
+      <td style="color:${rem>180?'var(--r)':rem>90?'var(--y)':'var(--g)'};font-weight:700;font-size:.68rem">${rem}</td>
+      <td style="color:var(--c);font-size:.6rem">${hex(res.Z[i]).slice(0,8)}</td>`;
     tb.appendChild(tr);
   });
   document.getElementById('csum-note').textContent=
-    `csum = ${A}×${CHAIN_LEN-1} − Σb[0..15] = ${A*(CHAIN_LEN-1)} − ${A*(CHAIN_LEN-1)-res.cs} = ${res.cs}   ·   checksum digits: [${res.dc[0]}, ${res.dc[1]}]   ·   prevents digit-increment forgeries`;
+    `csum = ${A}×${CHAIN_LEN-1} − Σb = ${A*(CHAIN_LEN-1)} − ${A*(CHAIN_LEN-1)-res.cs} = ${res.cs} · `+
+    `checksum digits [${res.dc[0]}, ${res.dc[1]}] · prevents digit-increment forgery`;
   document.getElementById('dig-wrap').style.display='block';
 
   sigState=res;
   document.getElementById('sg-btn').disabled=false;
   document.getElementById('vf-btn').disabled=false;
+  document.getElementById('fg-btn').disabled=false;
   setPipe(1,'done');setPipe(2,'active');
 }
 
@@ -1059,149 +1107,226 @@ async function startVerify(){
 
   tlog(`&nbsp;`);
   tlog(`<span class="kw">winternitz_verify</span>(M, R, Z, keyId=<span class="num">${keyState.kid}</span>)`);
-  tlog(`Hashing forward from each Z[i] — <span class="num">18</span> parallel chains`);
+  tlog(`Hashing forward from each Z[i] — <span class="num">18</span> chains in parallel`);
 
-  const pkc=await verify(mb,sigState.R,sigState.Z,keyState.kid,(i,rem,v)=>{
-    if(i<3)tlog(`Y′[<span class="num">${i}</span>]: +<span class="num">${rem}</span> steps → <span class="val">${fhex(v)}</span>`);
-  });
+  const pkr=await verifyOTS(mb,sigState.R,sigState.Z,keyState.kid);
+  const ok=hex(pkr)===hex(keyState.pk);
 
-  const ok=hex(pkc)===hex(keyState.pk);
-  tlog(`hash_lms([<span class="num">0</span>,<span class="num">${keyState.kid}</span>],*Y′) = <span class="${ok?'hi':'err'}">${fhex(pkc)}</span>`);
-  tlog(`Stored PK                 = <span class="cyan">${fhex(keyState.pk)}</span>`);
+  tlog(`hash_lms([0,${keyState.kid}],*Y') = <span class="${ok?'hi':'err'} b">${fhex(pkr)}</span>`);
+  tlog(`Stored PK              = <span class="ink">${fhex(keyState.pk)}</span>`);
   tlog(ok
-    ?`<span class="hi bold">✓ VALID — reconstructed PK matches. Signature accepted.</span>`
-    :`<span class="err bold">✗ INVALID — PK mismatch. Signature rejected.</span>`);
+    ?`<span class="hi b">✓ VALID — reconstructed PK matches</span>`
+    :`<span class="err b">✗ INVALID — PK mismatch</span>`);
 
   const vo=document.getElementById('vf-out');
-  vo.innerHTML=ok
-    ?'<span style="color:var(--g);font-size:1rem;font-weight:700">✓ VALID</span><br><small style="font-size:.65rem;color:var(--mid)">hash_lms([0, keyId], *Y′) = stored PK. Chain tips reconstructed correctly.</small>'
-    :'<span style="color:var(--r);font-size:1rem;font-weight:700">✗ INVALID</span>';
+  if(ok){
+    vo.innerHTML='<span style="color:var(--g);font-weight:700;font-size:.9rem">✓ VALID</span><br><span style="font-size:.62rem;color:var(--dim)">hash_lms([0, keyId], *Y\') = stored PK. Chain tips reconstructed correctly.</span>';
+  } else {
+    vo.innerHTML='<span style="color:var(--r);font-weight:700;font-size:.9rem">✗ INVALID</span>';
+  }
   document.getElementById('vf-btn').disabled=false;
-  setPipe(2,'done');
+  setPipe(2,'done');setPipe(3,'active');
+}
+
+async function startForge(){
+  if(!keyState||!sigState)return;
+  const msg=document.getElementById('msg-inp').value||'hello world';
+  const mb=new TextEncoder().encode(msg);
+  document.getElementById('fg-btn').disabled=true;
+  setPipe(3,'active');
+
+  // tamper Z[0] by flipping one bit
+  const tampZ=sigState.Z.map(z=>new Uint8Array(z));
+  const origByte=tampZ[0][0];
+  tampZ[0][0]^=0x01;
+
+  tlog(`&nbsp;`);
+  tlog(`<span class="err b">FORGERY ATTEMPT — tamper Z[0][0]: 0x${origByte.toString(16).padStart(2,'0')} → 0x${tampZ[0][0].toString(16).padStart(2,'0')}</span>`);
+  tlog(`<span class="dim"># Flip 1 bit in Z[0]. If verify succeeds, the scheme is broken.</span>`);
+  tlog(`Running <span class="kw">winternitz_verify</span>(M, R, Z_tampered, keyId=${keyState.kid}) ...`);
+
+  const pkForged=await verifyOTS(mb,sigState.R,tampZ,keyState.kid);
+  const ok=hex(pkForged)===hex(keyState.pk);
+
+  tlog(`Reconstructed PK = <span class="${ok?'hi':'err'} b">${fhex(pkForged)}</span>`);
+  tlog(`Stored PK        = <span class="ink">${fhex(keyState.pk)}</span>`);
+  tlog(ok
+    ?`<span class="err b">BUG: forgery succeeded — this should not happen</span>`
+    :`<span class="hi b">✓ INVALID — forgery detected. Reconstructed PK does not match.</span>`);
+
+  const fb=document.getElementById('forge-result');
+  fb.style.display='block';
+  if(!ok){
+    fb.className='forge-box';
+    fb.innerHTML=`<div style="font-size:.7rem;font-weight:700;color:var(--r);margin-bottom:6px">✗ Forgery rejected</div>
+      <div style="font-size:.63rem;color:var(--mid);line-height:1.7">
+        Z[0][0] flipped 0x${origByte.toString(16).padStart(2,'0')} → 0x${tampZ[0][0].toString(16).padStart(2,'0')}.
+        Hashing forward from the tampered Z[0] for CHAIN_LEN−1−b[0] more steps produces a wrong chain tip.
+        hash_lms([0, keyId], *Y') ≠ stored PK. Verification aborts with INVALID.
+        This demonstrates why second-preimage resistance of hash_lms is the binding security assumption.
+      </div>`;
+  } else {
+    fb.className='forge-box forge-box-ok';
+    fb.innerHTML='<div style="color:var(--r);font-weight:700">ERROR: forgery succeeded — report as bug</div>';
+  }
+  document.getElementById('fg-btn').disabled=false;
+  setPipe(3,'done');
 }
 
 function resetOTS(){
   keyState=null;sigState=null;
-  ['pk-out','sig-out'].forEach(id=>document.getElementById(id).textContent='—');
   document.getElementById('pk-out').textContent='—';
+  document.getElementById('sig-out').textContent='—';
   document.getElementById('vf-out').textContent='Run keygen → sign → verify.';
   document.getElementById('vf-out').style.color='var(--mid)';
-  document.getElementById('sg-btn').disabled=true;
-  document.getElementById('vf-btn').disabled=true;
+  document.getElementById('kid-val').textContent='—';
+  ['sg-btn','vf-btn','fg-btn'].forEach(id=>document.getElementById(id).disabled=true);
+  document.getElementById('kg-btn').disabled=false;
   document.getElementById('dig-wrap').style.display='none';
-  document.getElementById('keyid-val').textContent='—';
-  setPipe(0,'active');setPipe(1,'');setPipe(2,'');
-  document.getElementById('term-out').innerHTML='<div class="tl"><span class="tl-ts">---</span><span class="tl-m dim2">Reset. Ready.</span></div>';
+  document.getElementById('forge-result').style.display='none';
+  setPipe(0,'active');setPipe(1,'');setPipe(2,'');setPipe(3,'');
+  document.getElementById('term-out').innerHTML=
+    '<div class="tl"><span class="ts">---</span><span class="tm dim">Reset. Click winternitz_keygen() to begin.</span></div>';
 }
-
 function scrollToOTS(){document.getElementById('ots').scrollIntoView({behavior:'smooth'});setTimeout(startKeygen,400);}
 
-// ── Threshold
+// ── Threshold (3 trustees, k-of-3)
 let tData=[
-  {id:0,label:'Trustee 0',state:'active',seed:null,pr:null,pc:null},
-  {id:1,label:'Trustee 1',state:'active',seed:null,pr:null,pc:null},
+  {id:0,label:'Trustee 0',state:'act',seed:null,pr:null,pc:null},
+  {id:1,label:'Trustee 1',state:'act',seed:null,pr:null,pc:null},
+  {id:2,label:'Trustee 2',state:'act',seed:null,pr:null,pc:null},
 ];
 let kT=2;
 
-function onKChange(){kT=+document.getElementById('k-rng').value;document.getElementById('k-val').textContent=kT;renderThresh();}
+function onKChange(){
+  kT=+document.getElementById('k-rng').value;
+  document.getElementById('k-val').textContent=kT;
+  renderThresh();
+}
 
 function renderThresh(){
-  const s=document.getElementById('ts');
-  const active=tData.filter(t=>t.state==='active').length;
-  const can=active>=kT;
-  s.innerHTML='';
+  const active=tData.filter(t=>t.state==='act');
+  const can=active.length>=kT;
 
-  tData.forEach((t,i)=>{
+  const tr=document.getElementById('trustees-row');
+  tr.innerHTML='';
+  tData.forEach(t=>{
     const box=document.createElement('div');
-    box.className=`t-box ${t.state}`;
-    box.onclick=()=>{if(t.state!=='inactive'){t.state=t.state==='active'?'compromised':'active';t.pr=null;t.pc=null;renderThresh();}};
-    const prfLine=t.pr
+    box.className=`tbox ${t.state}`;
+    box.onclick=()=>{
+      if(t.state==='act'){t.state='comp';t.pr=null;t.pc=null;}
+      else if(t.state==='comp'){t.state='act';t.pr=null;t.pc=null;}
+      renderThresh();
+    };
+    const statusCls=t.state==='act'?'status-act':t.state==='comp'?'status-comp':'status-idle';
+    const statusTxt=t.state==='act'?'ACTIVE':t.state==='comp'?'COMPROMISED':'INACTIVE';
+    const prfHtml=t.pr
       ?`PRF_R = <span class="ok">${hex(t.pr).slice(0,12)}…</span><br>PRF_Chk = <span class="ok">${hex(t.pc).slice(0,12)}…</span>`
-      :(t.state==='compromised'?`<span class="fail">seed compromised — no contribution</span>`:`PRF_R, PRF_Chk: <em>not computed</em>`);
-    box.innerHTML=`<div class="t-label ${t.state==='active'?'a':t.state==='compromised'?'c':'i'}">${t.label}${t.state==='compromised'?' ✗':''}</div><div class="t-prf">${prfLine}</div><div class="t-seed">seed: ${t.seed?hex(t.seed).slice(0,16)+'…':'—'}</div>`;
-    s.appendChild(box);
-
-    if(i<tData.length-1){
-      const fl=document.createElement('div');
-      fl.className='flow-col';
-      fl.innerHTML=`<div class="flow-note">Rt, CHKt</div><div class="flow-line${t.state==='active'?' on':''}"></div><div class="flow-tip${t.state==='active'?' on':''}">▶</div>`;
-      const agg=document.createElement('div');
-      agg.className='agg-col';
-      agg.innerHTML=`<div class="agg-ring" style="box-shadow:0 0 20px rgba(157,111,255,${can?.3:.06})">⚡</div><div class="agg-label">Aggregator</div><div class="agg-eq">CRV.R = XOR(R, R₀, R₁)</div>`;
-      const fl2=document.createElement('div');
-      fl2.className='flow-col';
-      fl2.innerHTML=`<div class="flow-note">Rt, CHKt</div><div class="flow-line${tData[i+1].state==='active'?' on':''}"></div><div class="flow-tip${tData[i+1].state==='active'?' on':''}">▶</div>`;
-      s.appendChild(fl);s.appendChild(agg);s.appendChild(fl2);
-    }
+      :(t.state==='comp'?`<span class="fail">Seed compromised — no contribution</span>`:`PRF_R, PRF_Chk: pending`);
+    box.innerHTML=`
+      <div class="tbox-hdr">
+        <div class="tbox-id">${t.label}</div>
+        <span class="tbox-status ${statusCls}">${statusTxt}</span>
+      </div>
+      <div class="tbox-prf">${prfHtml}</div>
+      <div class="tbox-seed">seed: ${t.seed?hex(t.seed).slice(0,20)+'…':'—'}</div>`;
+    tr.appendChild(box);
   });
 
-  const vd=document.getElementById('tv'),td=document.getElementById('td'),btn=document.getElementById('ts-btn');
+  const vd=document.getElementById('tv'),td=document.getElementById('td');
+  const btn=document.getElementById('ts-btn');
   if(can){
     vd.className='verdict ok';
-    vd.textContent=`SECURE — ${active}/${tData.length} trustees active (k=${kT})`;
-    td.innerHTML=`Neither trustee's PRF output reveals the masked key alone. <code style="font-size:.58rem;color:var(--c)">CRV.R = XOR(R_base, R₀, R₁)</code> — R_base is unknown to all trustees.`;
-    btn.className='btn c';
+    vd.textContent=`SIGNING PERMITTED — ${active.length} of ${tData.length} trustees active (k=${kT})`;
+    td.innerHTML=`Each active trustee's contribution XOR-masks the aggregator's CRV.SK row. No k−1 subset can distinguish the masked key from a random pad.`;
+    btn.disabled=false;btn.className='btn c';
   } else {
     vd.className='verdict fail';
-    vd.textContent=`SIGNING BLOCKED — ${active} of ${kT} required (k=${kT})`;
-    td.innerHTML=`<span class="blocked">KK_Aggregator_Sign() aborts: insufficient PRF contributions.</span>`;
-    btn.className='btn d';
+    vd.textContent=`SIGNING BLOCKED — ${active.length} active, k=${kT} required`;
+    td.innerHTML=`<span style="color:var(--r)">KK_Aggregator_Sign() aborts: insufficient PRF contributions from active trustees.</span>`;
+    btn.disabled=true;btn.className='btn d';
   }
 }
 
 async function runThresh(){
-  const active=tData.filter(t=>t.state==='active');
-  if(active.length<kT){renderThresh();return;}
+  const active=tData.filter(t=>t.state==='act');
+  if(active.length<kT)return;
+
   for(const t of tData){
-    if(t.state==='active'){t.seed=randB(N_BYTES);t.pr=await prf_r(t.seed,0);t.pc=await prf_chk(t.seed,0);}
+    if(t.state==='act'){
+      t.seed=randB(N_BYTES);
+      t.pr=await prf_r(t.seed,0);
+      t.pc=await prf_chk(t.seed,0);
+    }
   }
-  const crv=xorB(...active.map(t=>t.pr));
-  document.getElementById('tv').textContent='✓ AggregatorSign() succeeded';
-  document.getElementById('tv').className='verdict ok';
-  document.getElementById('td').innerHTML=
-    `CRV.R = <span class="v">${fhex(crv)}</span><br>`+
-    active.map(t=>`PRF_R(seed_${t.id}) = <span class="v">${fhex(t.pr)}</span>`).join('<br>');
+
+  const Rs=active.map(t=>t.pr);
+  const crvR=xorArr(randB(N_BYTES),...Rs);
+
+  const r1=document.getElementById('r1-eq');
+  r1.innerHTML=active.map(t=>
+    `${t.label}: PRF_R = <span class="v">${fhex(t.pr,3)}</span><br>`+
+    `${t.label}: PRF_Chk = <span class="v">${fhex(t.pc,3)}</span>`
+  ).join('<br>');
+
+  const r2=document.getElementById('r2-eq');
+  r2.innerHTML=`CRV.R = XOR(R_base, ${active.map(t=>`R_${t.id}`).join(', ')})<br>`+
+    `      = <span class="v">${fhex(crvR)}</span><br>`+
+    `Active trustees: ${active.map(t=>t.label).join(', ')}`;
+
   renderThresh();
 }
 
-function resetThresh(){tData.forEach(t=>{t.state='active';t.seed=null;t.pr=null;t.pc=null;});renderThresh();}
+function resetThresh(){
+  tData.forEach(t=>{t.state='act';t.seed=null;t.pr=null;t.pc=null;});
+  document.getElementById('r1-eq').innerHTML='<span style="color:var(--dim)">Run KK_Aggregator_Sign() to see computed values.</span>';
+  document.getElementById('r2-eq').innerHTML='<span style="color:var(--dim)">CRV.R = XOR(R_base, R₀, R₁, …)</span>';
+  renderThresh();
+}
 renderThresh();
 
-// ── Merkle
+// ── Merkle Tree
 const NS='http://www.w3.org/2000/svg';
-const LX=[130,290,530,690],LY=260,IX=[210,610],IY=160,RX=410,RY=62;
+const LX=[100,270,530,700],LY=248,IX=[185,615],IY=155,RX=410,RY=58;
 let mState='idle',mH={};
 
-function svgE(tag,attrs){const e=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));return e;}
+function svge(tag,attrs){
+  const e=document.createElementNS(NS,tag);
+  Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));
+  return e;
+}
 
 function initSVG(){
   const svg=document.getElementById('msv');svg.innerHTML='';
   const edges=[
-    {id:'ei0l0',x1:IX[0],y1:IY,x2:LX[0],y2:LY},{id:'ei0l1',x1:IX[0],y1:IY,x2:LX[1],y2:LY},
-    {id:'ei1l2',x1:IX[1],y1:IY,x2:LX[2],y2:LY},{id:'ei1l3',x1:IX[1],y1:IY,x2:LX[3],y2:LY},
-    {id:'eri0', x1:RX,   y1:RY,x2:IX[0],y2:IY}, {id:'eri1', x1:RX,   y1:RY,x2:IX[1],y2:IY},
+    {id:'e0',x1:IX[0],y1:IY,x2:LX[0],y2:LY},{id:'e1',x1:IX[0],y1:IY,x2:LX[1],y2:LY},
+    {id:'e2',x1:IX[1],y1:IY,x2:LX[2],y2:LY},{id:'e3',x1:IX[1],y1:IY,x2:LX[3],y2:LY},
+    {id:'er0',x1:RX,y1:RY,x2:IX[0],y2:IY},{id:'er1',x1:RX,y1:RY,x2:IX[1],y2:IY},
   ];
-  edges.forEach(e=>svg.appendChild(svgE('line',{class:'me',id:e.id,x1:e.x1,y1:e.y1,x2:e.x2,y2:e.y2})));
+  edges.forEach(({id,x1,y1,x2,y2})=>svg.appendChild(svge('line',{class:'me',id,x1,y1,x2,y2})));
 
   LX.forEach((x,i)=>{
-    const g=svgE('g',{id:`ml${i}`,style:'cursor:pointer'});g.onclick=()=>authPath(i);
-    g.appendChild(svgE('circle',{class:'mn-circle leaf',cx:x,cy:LY,r:26,id:`ml${i}c`}));
-    const t1=svgE('text',{class:'mn-text',x,y:LY-9});t1.textContent=`pk[${i}]`;
-    const t2=svgE('text',{class:'mn-text',x,y:LY+7,id:`ml${i}t`});t2.textContent='—';
+    const g=svge('g',{id:`ml${i}`,style:'cursor:pointer'});
+    g.onclick=()=>authPath(i);
+    g.appendChild(svge('circle',{class:'mn-c leaf',cx:x,cy:LY,r:24,id:`ml${i}c`}));
+    const t1=svge('text',{class:'mn-t',x,y:LY-6});t1.textContent=`pk[${i}]`;
+    const t2=svge('text',{class:'mn-t',x,y:LY+8,id:`ml${i}t`});t2.textContent='—';
     g.appendChild(t1);g.appendChild(t2);svg.appendChild(g);
-    const lb=svgE('text',{x,y:LY+44,'text-anchor':'middle',fill:'var(--dim)','font-family':'JetBrains Mono','font-size':'9'});lb.textContent=`leaf[${i}]`;svg.appendChild(lb);
+    const lb=svge('text',{x,y:LY+38,'text-anchor':'middle',fill:'var(--dim)','font-family':'JetBrains Mono','font-size':'8'});
+    lb.textContent=`leaf[${i}]`;svg.appendChild(lb);
   });
   IX.forEach((x,i)=>{
-    const g=svgE('g',{id:`mi${i}`});
-    g.appendChild(svgE('circle',{class:'mn-circle',cx:x,cy:IY,r:28,id:`mi${i}c`}));
-    const t1=svgE('text',{class:'mn-text',x,y:IY-9});t1.textContent=`h${i===0?'₀₁':'₂₃'}`;
-    const t2=svgE('text',{class:'mn-text',x,y:IY+7,id:`mi${i}t`});t2.textContent='—';
+    const g=svge('g',{id:`mi${i}`});
+    g.appendChild(svge('circle',{class:'mn-c',cx:x,cy:IY,r:26,id:`mi${i}c`}));
+    const label=i===0?'h₀₁':'h₂₃';
+    const t1=svge('text',{class:'mn-t',x,y:IY-7});t1.textContent=label;
+    const t2=svge('text',{class:'mn-t',x,y:IY+8,id:`mi${i}t`});t2.textContent='—';
     g.appendChild(t1);g.appendChild(t2);svg.appendChild(g);
   });
-  const rg=svgE('g',{id:'mr'});
-  rg.appendChild(svgE('circle',{class:'mn-circle',cx:RX,cy:RY,r:30,id:'mrc'}));
-  const rt1=svgE('text',{class:'mn-text',x:RX,y:RY-10});rt1.textContent='root';
-  const rt2=svgE('text',{class:'mn-text',x:RX,y:RY+7,id:'mrt'});rt2.textContent='—';
+  const rg=svge('g',{id:'mr'});
+  rg.appendChild(svge('circle',{class:'mn-c',cx:RX,cy:RY,r:28,id:'mrc'}));
+  const rt1=svge('text',{class:'mn-t',x:RX,y:RY-8});rt1.textContent='root';
+  const rt2=svge('text',{class:'mn-t',x:RX,y:RY+8,id:'mrt'});rt2.textContent='—';
   rg.appendChild(rt1);rg.appendChild(rt2);svg.appendChild(rg);
 }
 
@@ -1209,55 +1334,57 @@ async function buildMerkle(){
   if(mState==='building')return;
   mState='building';mH={};initSVG();
   document.getElementById('ms').textContent='Computing leaf public keys…';
-  document.getElementById('mr-display').textContent='';
+  document.getElementById('mr-v').innerHTML='';
 
   for(let i=0;i<4;i++){
     const pk=await hash_lms([T_PK,i],randB(N_BYTES));
     mH[`l${i}`]=pk;
-    document.getElementById(`ml${i}c`).className.baseVal='mn-circle leaf-on';
+    document.getElementById(`ml${i}c`).className.baseVal='mn-c leaf-on';
     document.getElementById(`ml${i}t`).textContent=hex(pk).slice(0,8)+'…';
-    document.getElementById(`ml${i}t`).className.baseVal='mn-text on';
-    await wait(220);
+    document.getElementById(`ml${i}t`).className.baseVal='mn-t on';
+    await wait(180);
   }
   document.getElementById('ms').textContent='Computing internal nodes…';
   for(let i=0;i<2;i++){
     const node=await hash_lms([T_MT,0,i],mH[`l${i*2}`],mH[`l${i*2+1}`]);
     mH[`i${i}`]=node;
-    document.getElementById(`ei${i}l${i*2}`).classList.add('on');
-    document.getElementById(`ei${i}l${i*2+1}`).classList.add('on');
-    await wait(100);
-    document.getElementById(`mi${i}c`).className.baseVal='mn-circle int-on';
+    document.getElementById(`e${i*2}`).classList.add('on');
+    document.getElementById(`e${i*2+1}`).classList.add('on');
+    await wait(80);
+    document.getElementById(`mi${i}c`).className.baseVal='mn-c int-on';
     document.getElementById(`mi${i}t`).textContent=hex(node).slice(0,8)+'…';
-    document.getElementById(`mi${i}t`).className.baseVal='mn-text on';
-    await wait(300);
+    document.getElementById(`mi${i}t`).className.baseVal='mn-t on';
+    await wait(280);
   }
   const root=await hash_lms([T_MT,1,0],mH['i0'],mH['i1']);
   mH['root']=root;
-  document.getElementById('eri0').classList.add('on');document.getElementById('eri1').classList.add('on');
-  await wait(100);
-  document.getElementById('mrc').className.baseVal='mn-circle root-on';
+  document.getElementById('er0').classList.add('on');
+  document.getElementById('er1').classList.add('on');
+  await wait(80);
+  document.getElementById('mrc').className.baseVal='mn-c root-on';
   document.getElementById('mrt').textContent=hex(root).slice(0,8)+'…';
-  document.getElementById('mrt').className.baseVal='mn-text on';
-  document.getElementById('mr-display').innerHTML=`root = <span>${fhex(root)}</span>`;
-  document.getElementById('ms').textContent='Done. Click a leaf to show its authentication path.';
+  document.getElementById('mrt').className.baseVal='mn-t on';
+  document.getElementById('mr-v').innerHTML=`root = <span>${fhex(root)}</span>`;
+  document.getElementById('ms').textContent='Click a leaf to show its authentication path (2 sibling nodes).';
   mState='done';
 }
 
 function authPath(idx){
   if(mState!=='done')return;
-  document.querySelectorAll('.mn-circle').forEach(e=>{e.className.baseVal=e.className.baseVal.replace(' auth','');});
+  document.querySelectorAll('.mn-c').forEach(e=>e.className.baseVal=e.className.baseVal.replace(' auth',''));
   document.querySelectorAll('.me').forEach(e=>e.classList.remove('auth'));
   const sib=idx%2===0?idx+1:idx-1;
   const iIdx=idx<2?0:1;const sIdx=1-iIdx;
   document.getElementById(`ml${sib}c`).className.baseVal+=' auth';
   document.getElementById(`mi${sIdx}c`).className.baseVal+=' auth';
-  const em={0:'ei0l0',1:'ei0l1',2:'ei1l2',3:'ei1l3'};
+  const em={0:'e0',1:'e1',2:'e2',3:'e3'};
   document.getElementById(em[sib]).classList.add('auth');
-  document.getElementById(sIdx===0?'eri0':'eri1').classList.add('auth');
-  document.getElementById('ms').textContent=`Auth path for leaf[${idx}]: sibling leaf[${sib}] + node h${sIdx===0?'₀₁':'₂₃'} — verifier needs 2 sibling values to reconstruct root`;
+  document.getElementById(sIdx===0?'er0':'er1').classList.add('auth');
+  document.getElementById('ms').textContent=
+    `Auth path for leaf[${idx}]: sibling leaf[${sib}] + internal node h${sIdx===0?'₀₁':'₂₃'} — verifier uses these two values to reconstruct root`;
 }
 
-function resetMerkle(){mState='idle';mH={};initSVG();document.getElementById('ms').textContent='Build to see real hashes.';document.getElementById('mr-display').textContent='';}
+function resetMerkle(){mState='idle';mH={};initSVG();document.getElementById('ms').textContent='Build to see computed hash values.';document.getElementById('mr-v').innerHTML='';}
 initSVG();
 
 // ── XOR Benchmark
@@ -1265,20 +1392,20 @@ async function runXOR(){
   const btn=document.getElementById('xbtn');
   btn.disabled=true;btn.textContent='Measuring…';
   document.getElementById('xspd').textContent='—×';
-  document.getElementById('xsub').textContent='running…';
+  document.getElementById('xsub').textContent='running 5,000 iterations each…';
   await wait(20);
   const RUNS=5000,N=10;
   const inp=Array.from({length:N},()=>{const a=new Uint8Array(N_BYTES);crypto.getRandomValues(a);return a;});
 
   const t1=performance.now();
   for(let r=0;r<RUNS;r++){const o=new Uint8Array(N_BYTES);for(const a of inp)for(let i=0;i<N_BYTES;i++)o[i]^=a[i];}
-  const bu=(performance.now()-t1)/RUNS*1e3;
+  const bu=(performance.now()-t1)/RUNS*1000;
 
-  await wait(10);
+  await wait(8);
 
   const t2=performance.now();
   for(let r=0;r<RUNS;r++){const o=new Uint32Array(N_BYTES/4);for(const a of inp){const v=new Uint32Array(a.buffer,a.byteOffset);for(let i=0;i<4;i++)o[i]^=v[i];}}
-  const uu=(performance.now()-t2)/RUNS*1e3;
+  const uu=(performance.now()-t2)/RUNS*1000;
 
   const sp=bu/uu;const mx=Math.max(bu,uu);
   document.getElementById('xbv').textContent=bu.toFixed(2)+' μs';
@@ -1286,22 +1413,22 @@ async function runXOR(){
   document.getElementById('xbf').style.width=(bu/mx*100)+'%';
   document.getElementById('xuf').style.width=(uu/mx*100)+'%';
   document.getElementById('xspd').textContent=sp.toFixed(1)+'×';
-  document.getElementById('xsub').textContent=`speedup on this machine · Python result: 5.9× (CPython overhead model) · ${RUNS.toLocaleString()} iterations`;
+  document.getElementById('xsub').textContent=`speedup on this CPU · Python (CPython M-series): 5.9× · ${RUNS.toLocaleString()} iterations`;
   btn.disabled=false;btn.textContent='Run _xor_many() benchmark';
 }
 
 // ── Hero canvas
 const hc=document.getElementById('hc');
 const hctx=hc.getContext('2d');
-const HC='0123456789ABCDEF'.split('');
+const HEX='0123456789ABCDEF'.split('');
 let hp=[];
 function initHC(){
   hc.width=window.innerWidth;hc.height=window.innerHeight;
-  hp=Array.from({length:70},()=>({
+  hp=Array.from({length:60},()=>({
     x:Math.random()*hc.width,y:Math.random()*hc.height,
-    ch:HC[0|(Math.random()*16)],sp:.25+Math.random()*.6,
-    sz:11+Math.random()*4,al:.04+Math.random()*.18,
-    col:Math.random()>.65?'rgba(0,200,240,':'rgba(0,224,122,'
+    ch:HEX[0|(Math.random()*16)],sp:.2+Math.random()*.5,
+    sz:10+Math.random()*4,al:.035+Math.random()*.12,
+    col:Math.random()>.6?'rgba(0,191,223,':'rgba(0,217,110,'
   }));
 }
 function drawHC(){
@@ -1311,28 +1438,28 @@ function drawHC(){
     hctx.fillStyle=p.col+p.al+')';
     hctx.fillText(p.ch,p.x,p.y);
     p.y-=p.sp;
-    if(p.y<-16){p.y=hc.height+16;p.x=Math.random()*hc.width;p.ch=HC[0|(Math.random()*16)];}
+    if(p.y<-16){p.y=hc.height+16;p.x=Math.random()*hc.width;p.ch=HEX[0|(Math.random()*16)];}
   });
   requestAnimationFrame(drawHC);
 }
 window.addEventListener('resize',initHC);
 initHC();drawHC();
 
-// ── Benchmark bars
+// ── Benchmark bar animation
 const bObs=new IntersectionObserver(es=>{
   es.forEach(e=>{
     if(e.isIntersecting){
-      e.target.querySelectorAll('.bf').forEach(b=>setTimeout(()=>{b.style.width=b.dataset.w+'%';},120));
+      e.target.querySelectorAll('.bf').forEach(b=>setTimeout(()=>{b.style.width=b.dataset.w+'%';},100));
       bObs.unobserve(e.target);
     }
   });
-},{threshold:.15});
+},{threshold:.12});
 document.querySelectorAll('.bc').forEach(c=>bObs.observe(c));
 
 // ── Scroll reveal
 const rObs=new IntersectionObserver(es=>{
   es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');rObs.unobserve(e.target);}});
-},{threshold:.07});
+},{threshold:.06});
 document.querySelectorAll('.rv').forEach(el=>rObs.observe(el));
 </script>
 </body>
