@@ -31,14 +31,16 @@ src/
 ├── distributed_signing.py # KK protocol: PRFs, setup, two-round signing
 ├── shard_trustee.py       # aggregator + trustee API
 ├── prf_rf_game.py         # PRF/RF game (Algorithm 12)
-└── benchmark.py           # timing benchmarks
+├── benchmark.py           # timing benchmarks
+└── attacks.py             # concrete attack demos (key reuse, forgery, coalition)
 
 test/
 ├── test_lamport.py
 ├── test_merkle_tree.py
 ├── test_stateful_hash.py
 ├── test_integration.py
-└── test_distributed_signing.py
+├── test_distributed_signing.py
+└── test_attacks.py          # forgery, key reuse, coalition, domain separation
 ```
 
 ---
@@ -66,7 +68,7 @@ W=8 gives the smallest signature (288 bytes) at the cost of the slowest keygen. 
 python -m pytest test/ -v
 ```
 
-73 tests should pass. Run specific suites with e.g. `pytest test/test_integration.py -v`.
+97 tests should pass. Run specific suites with e.g. `pytest test/test_integration.py -v`.
 
 ---
 
@@ -90,6 +92,24 @@ Prints a table and saves `benchmark_results.csv` and `complexity_comparison.csv`
 | AggregatorSign (k=2) | ~8.1 ms |
 | AggregatorSign (k=3) | ~12.1 ms |
 | AggregatorVerify | ~1.93 ms |
+
+---
+
+## Attack Demonstrations
+
+`src/attacks.py` demonstrates three concrete attack scenarios and verifies that each defence holds:
+
+```bash
+python src/attacks.py
+```
+
+| Attack | What it shows | Defence |
+|---|---|---|
+| Key reuse | Two signings with the same keyId expose ~67% of each chain via forward-hashing | `used_keys[t].add(keyId)` in `KK_Sign1()` — hard refusal on reuse |
+| Forgery | Bit flip and forward-advance strategies both produce the wrong public key | Winternitz checksum: any message digit increase forces a checksum decrease, requiring a preimage |
+| Coalition (k−1) | One missing trustee's PRF contribution acts as a uniform one-time pad over `CRV.SK` | XOR masking with all k seeds; aggregator aborts if any trustee is absent |
+
+See [`THREAT_MODEL.md`](THREAT_MODEL.md) for the adversary model, security assumptions, and per-attack proof sketches.
 
 ---
 

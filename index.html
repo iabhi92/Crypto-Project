@@ -395,6 +395,7 @@ footer{border-top:1px solid var(--line);padding:26px 0;}
     <div class="logo"><span>hash-sig</span><span>/</span><span>distributed</span></div>
     <div class="nr">
       <a href="#ots" class="na">OTS</a>
+      <a href="#keyreuse" class="na">Key Reuse</a>
       <a href="#security" class="na">Security</a>
       <a href="#threshold" class="na">Threshold</a>
       <a href="#merkle" class="na">Merkle</a>
@@ -553,11 +554,96 @@ footer{border-top:1px solid var(--line);padding:26px 0;}
 </div>
 </section>
 
-<!-- SECURITY PROPERTIES -->
-<section id="security" class="sec-stripe">
+<!-- KEY REUSE ATTACK -->
+<section id="keyreuse" class="sec-stripe">
 <div class="w">
   <div class="sl rv">
     <span class="sl-idx">02</span>
+    <span class="sl-tag r">KEY REUSE ATTACK — WHY OTS KEYS ARE ONE-TIME</span>
+    <div class="sl-rule"></div>
+  </div>
+  <h2 class="rv">Sign the same keyId twice. Watch the chain positions leak.</h2>
+  <p class="sdesc rv">
+    After observing Z1[i] at digit position b1[i] and Z2[i] at position b2[i], an adversary can compute every chain element from position min(b1[i], b2[i]) upward by forward-hashing from whichever Z has the lower index — using the same absolute step indices the keygen used. Only positions 0 … min(b1[i], b2[i])−1 remain preimage-hard. With two uniformly random messages, the expected minimum is ≈ 85, so ≈ 67% of each chain is exposed. The defence is <code>used_keys</code> tracking in <code>KK_Sign1()</code>: a trustee refuses to contribute to a second signing under the same <code>keyId</code>.
+  </p>
+
+  <div class="rv" style="background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;">
+    <!-- toolbar -->
+    <div style="padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <button class="btn c" onclick="reuseKeygen()">Generate shared keyId</button>
+      <button class="btn g" id="rs1-btn" onclick="reuseSign(1)" disabled>Sign message 1</button>
+      <button class="btn r" id="rs2-btn" onclick="reuseSign(2)" disabled>Sign message 2 (same keyId)</button>
+      <button class="btn d" onclick="reuseReset()">↺ reset</button>
+      <span id="reuse-status" style="font-size:.63rem;color:var(--mid);margin-left:4px;">Generate a key to begin.</span>
+    </div>
+
+    <!-- two message inputs + key info -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 200px;gap:1px;background:var(--line);">
+      <div style="background:var(--s1);padding:16px 20px;">
+        <div style="font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px;">Message 1</div>
+        <input id="rm1" class="txt-inp" value="transaction: alice → bob 1.5 BTC">
+        <div style="font-size:.6rem;color:var(--dim);margin-top:8px;">Digit sequence b1[0..17]: <span id="rd1" style="color:var(--c)">—</span></div>
+      </div>
+      <div style="background:var(--s1);padding:16px 20px;">
+        <div style="font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--r);margin-bottom:6px;">Message 2 — same keyId ⚠</div>
+        <input id="rm2" class="txt-inp" value="transaction: alice → eve 1.5 BTC">
+        <div style="font-size:.6rem;color:var(--dim);margin-top:8px;">Digit sequence b2[0..17]: <span id="rd2" style="color:var(--r)">—</span></div>
+      </div>
+      <div style="background:var(--bg);padding:16px;">
+        <div style="font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:8px;">Key info</div>
+        <div style="font-size:.62rem;color:var(--dim);line-height:1.8;">
+          keyId: <span id="rk-id" style="color:var(--c)">—</span><br>
+          Seeds: 18 × 16B<br>
+          CHAIN_LEN: 256
+        </div>
+      </div>
+    </div>
+
+    <!-- exposure analysis -->
+    <div id="reuse-analysis" style="display:none;">
+      <div style="padding:14px 20px;background:var(--bg);border-top:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:24px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:2px;">Avg chain exposure</div>
+          <div style="font-size:2.6rem;font-weight:700;color:var(--r);line-height:1;letter-spacing:-.03em;" id="reuse-pct">—%</div>
+          <div style="font-size:.6rem;color:var(--dim);margin-top:2px;">of each chain reachable without preimage</div>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px;">What this means</div>
+          <div style="font-size:.68rem;color:var(--mid);line-height:1.75;" id="reuse-explain"></div>
+        </div>
+        <div style="font-size:.62rem;color:var(--dim);background:var(--rg);border:1px solid rgba(255,37,71,.25);border-radius:var(--r6);padding:10px 14px;max-width:220px;line-height:1.65;">
+          <strong style="color:var(--r)">Defence (from distributed_signing.py):</strong><br>
+          <code style="color:var(--c);font-size:.6rem">used_keys[t].add(keyId)</code><br>
+          KK_Sign1() returns <code style="color:var(--c);font-size:.6rem">None</code> on reuse — enforced before any signing computation begins.
+        </div>
+      </div>
+      <!-- per-chain table -->
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:.64rem;">
+          <thead>
+            <tr style="background:rgba(9,22,34,.8);border-bottom:1px solid var(--line);">
+              <th style="padding:7px 12px;color:var(--dim);font-weight:500;text-align:center;">chain i</th>
+              <th style="padding:7px 12px;color:var(--dim);font-weight:500;">role</th>
+              <th style="padding:7px 12px;color:var(--c);font-weight:600;text-align:center;">b1[i]</th>
+              <th style="padding:7px 12px;color:var(--r);font-weight:600;text-align:center;">b2[i]</th>
+              <th style="padding:7px 12px;color:var(--y);font-weight:600;text-align:center;">min</th>
+              <th style="padding:7px 12px;color:var(--dim);font-weight:500;text-align:left;min-width:160px;">exposure</th>
+              <th style="padding:7px 12px;color:var(--dim);font-weight:500;text-align:right;">% exposed</th>
+            </tr>
+          </thead>
+          <tbody id="reuse-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- SECURITY PROPERTIES -->
+<section id="security" class="sec-stripe" style="border-top:none;">
+<div class="w">
+  <div class="sl rv">
+    <span class="sl-idx">03</span>
     <span class="sl-tag p">SECURITY PROPERTIES</span>
     <div class="sl-rule"></div>
   </div>
@@ -594,7 +680,7 @@ footer{border-top:1px solid var(--line);padding:26px 0;}
 <section id="threshold">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-idx">03</span>
+    <span class="sl-idx">04</span>
     <span class="sl-tag r">KK_AGGREGATORSIGN — TWO-ROUND PRF PROTOCOL</span>
     <div class="sl-rule"></div>
   </div>
@@ -642,7 +728,7 @@ footer{border-top:1px solid var(--line);padding:26px 0;}
 <section id="merkle" class="sec-stripe">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-idx">04</span>
+    <span class="sl-idx">05</span>
     <span class="sl-tag g">MT_CONSTRUCT — MERKLE AUTHENTICATION TREE</span>
     <div class="sl-rule"></div>
   </div>
@@ -675,7 +761,7 @@ footer{border-top:1px solid var(--line);padding:26px 0;}
 <section id="perf">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-idx">05</span>
+    <span class="sl-idx">06</span>
     <span class="sl-tag y">BENCHMARKS — benchmark_results.csv</span>
     <div class="sl-rule"></div>
   </div>
@@ -740,7 +826,7 @@ footer{border-top:1px solid var(--line);padding:26px 0;}
 <section id="xor" class="sec-stripe">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-idx">06</span>
+    <span class="sl-idx">07</span>
     <span class="sl-tag c">_XOR_MANY() OPTIMISATION — MEASURED ON THIS MACHINE</span>
     <div class="sl-rule"></div>
   </div>
@@ -794,7 +880,7 @@ footer{border-top:1px solid var(--line);padding:26px 0;}
 <section id="opts">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-idx">07</span>
+    <span class="sl-idx">08</span>
     <span class="sl-tag y">THREE MEASURED OPTIMISATIONS</span>
     <div class="sl-rule"></div>
   </div>
@@ -844,7 +930,7 @@ footer{border-top:1px solid var(--line);padding:26px 0;}
 <section id="code" class="sec-stripe">
 <div class="w">
   <div class="sl rv">
-    <span class="sl-idx">08</span>
+    <span class="sl-idx">09</span>
     <span class="sl-tag c">SOURCE — CRITICAL PATHS</span>
     <div class="sl-rule"></div>
   </div>
@@ -1455,6 +1541,117 @@ const bObs=new IntersectionObserver(es=>{
   });
 },{threshold:.12});
 document.querySelectorAll('.bc').forEach(c=>bObs.observe(c));
+
+// ── Key Reuse Attack Demo ─────────────────────────────────────────────────────
+
+let reuseState=null;
+
+function reuseReset(){
+  reuseState=null;
+  document.getElementById('rs1-btn').disabled=true;
+  document.getElementById('rs2-btn').disabled=true;
+  document.getElementById('reuse-status').textContent='Generate a key to begin.';
+  document.getElementById('rk-id').textContent='—';
+  document.getElementById('reuse-analysis').style.display='none';
+  document.getElementById('rd1').textContent='—';
+  document.getElementById('rd2').textContent='—';
+  ['rm1','rm2'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.style.borderColor='';el.style.color='';}
+  });
+}
+
+async function reuseKeygen(){
+  reuseReset();
+  document.getElementById('reuse-status').textContent='Generating key… (computing 18 × 255 hashes)';
+  const kid=Math.floor(Math.random()*0xFFFF);
+  // Generate 18 seeds (AC chains)
+  const seeds=[];
+  for(let i=0;i<AC;i++){const s=new Uint8Array(N_BYTES);crypto.getRandomValues(s);seeds.push(s);}
+  // Walk each chain to its tip — same as the main keygen
+  const chainTips=[];
+  for(let i=0;i<AC;i++){
+    let v=seeds[i];
+    for(let step=1;step<CHAIN_LEN;step++) v=await hash_lms([T_CHAIN,i,step,kid],v);
+    chainTips.push(v);
+  }
+  // PK = hash of all chain tips concatenated
+  const allTips=new Uint8Array(chainTips.flatMap(t=>[...t]));
+  const pk=await hash_lms([T_PK,kid],allTips);
+  reuseState={kid,seeds,pk,b1:null,b2:null};
+  document.getElementById('rk-id').textContent='0x'+kid.toString(16).padStart(4,'0');
+  document.getElementById('rs1-btn').disabled=false;
+  document.getElementById('rs2-btn').disabled=false;
+  document.getElementById('reuse-status').textContent='Key generated. Sign both messages.';
+}
+
+async function _reuseDigits(mb,R,kid){
+  // Winternitz digit sequence for message mb
+  const msgBytes=new TextEncoder().encode(mb);
+  const hbuf=await hash_lms([T_MSG,kid],R,msgBytes);
+  const digits=[...hbuf.slice(0,A)]; // A message digits, each 0–255
+  // Checksum: A*(CHAIN_LEN-1) − sum(digits), big-endian 2 bytes
+  let cs=A*(CHAIN_LEN-1);
+  for(const d of digits) cs-=d;
+  digits.push((cs>>8)&0xFF, cs&0xFF);
+  return digits; // length AC=18
+}
+
+async function reuseSign(n){
+  if(!reuseState) return;
+  const st=reuseState;
+  const msgEl=document.getElementById('rm'+n);
+  const mb=(msgEl&&msgEl.value)?msgEl.value:'message '+n;
+  const R=new Uint8Array(N_BYTES);
+  crypto.getRandomValues(R);
+  document.getElementById('reuse-status').textContent='Signing message '+n+'…';
+  const digits=await _reuseDigits(mb,R,st.kid);
+  if(n===1) st.b1=digits;
+  else st.b2=digits;
+  // Show first 8 digits
+  const rdEl=document.getElementById('rd'+n);
+  if(rdEl) rdEl.textContent='['+digits.slice(0,8).join(', ')+' …]';
+  // Mark the input
+  if(msgEl){msgEl.style.borderColor=n===1?'var(--c)':'var(--r)';msgEl.style.color=n===1?'var(--c)':'var(--r)';}
+  const signed=[(st.b1?'Msg 1 ✓':'Msg 1 …'),(st.b2?'Msg 2 ✓':'Msg 2 …')].join('  ');
+  document.getElementById('reuse-status').textContent=signed;
+  if(st.b1&&st.b2) showReuseAnalysis();
+}
+
+function showReuseAnalysis(){
+  const st=reuseState;
+  const b1=st.b1,b2=st.b2;
+  const rows=[];
+  let totalExposure=0;
+  for(let i=0;i<AC;i++){
+    const lo=Math.min(b1[i],b2[i]);
+    const exposed=CHAIN_LEN-1-lo;
+    const pct=Math.round(exposed/(CHAIN_LEN-1)*100);
+    totalExposure+=pct;
+    const role=i<A?`b[${i}]`:`csum[${i-A}]`;
+    const barW=Math.round(pct*60/100);
+    const barColor=pct>80?'var(--r)':pct>50?'var(--y)':'var(--g)';
+    const rowBg=i%2===0?'rgba(9,22,34,.4)':'transparent';
+    rows.push(`<tr style="background:${rowBg}">
+      <td style="padding:5px 12px;color:var(--mid);text-align:center">${i}</td>
+      <td style="padding:5px 12px;color:var(--dim);font-size:.68rem">${role}</td>
+      <td style="padding:5px 12px;color:var(--c);text-align:right">${b1[i]}</td>
+      <td style="padding:5px 12px;color:var(--r);text-align:right">${b2[i]}</td>
+      <td style="padding:5px 12px;color:var(--y);text-align:right;font-weight:600">${lo}</td>
+      <td style="padding:5px 12px"><div style="width:${barW}px;height:6px;background:${barColor};border-radius:3px;display:inline-block"></div></td>
+      <td style="padding:5px 12px;color:${barColor};text-align:right;font-weight:600">${pct}%</td>
+    </tr>`);
+  }
+  const avgPct=Math.round(totalExposure/AC);
+  document.getElementById('reuse-pct').textContent=avgPct+'%';
+  document.getElementById('reuse-explain').textContent=
+    `After signing two messages with the same keyId, an adversary can reach ${avgPct}% of chain positions `+
+    `by forward-hashing from whichever signature element has the lower digit index. `+
+    `Only positions 0 … min(b₁[i], b₂[i])−1 require a SHA-256 preimage to recover.`;
+  document.getElementById('reuse-tbody').innerHTML=rows.join('');
+  document.getElementById('reuse-analysis').style.display='block';
+  document.getElementById('reuse-status').textContent='Analysis complete — '+avgPct+'% of chain material exposed.';
+}
 
 // ── Scroll reveal
 const rObs=new IntersectionObserver(es=>{
