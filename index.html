@@ -4,367 +4,520 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Distributed Hash-Based Threshold Signatures</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Inter:wght@700;800;900&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#050B12;--s1:#080F18;--s2:#0C1520;--s3:#101C2A;
-  --c:#00CFFF;--g:#00E87A;--r:#FF2D54;--y:#F0B429;--p:#A855F7;
-  --ink:#B8D4EC;--dim:#3A5878;--ghost:#1A2D40;--line:#1E3040;
-  --cg:rgba(0,207,255,.12);--gg:rgba(0,232,122,.12);--rg:rgba(255,45,84,.12);--yg:rgba(240,180,41,.10);
-  --cs:0 0 16px rgba(0,207,255,.35);--gs:0 0 16px rgba(0,232,122,.35);--rs:0 0 16px rgba(255,45,84,.35);
+  --bg:#04090F;
+  --s1:#07101A;--s2:#0A1622;--s3:#0E1E2E;
+  --c:#00C8F0;--g:#00E07A;--r:#FF2952;--y:#F2B238;--p:#9D6FFF;
+  --ink:#C4DDEF;--mid:#5A7A96;--dim:#2E4A60;--ghost:#152030;--line:#1C3040;
+  --cg:rgba(0,200,240,.1);--gg:rgba(0,224,122,.1);--rg:rgba(255,41,82,.1);--yg:rgba(242,178,56,.08);
+  --cgl:rgba(0,200,240,.18);--ggl:rgba(0,224,122,.18);
+  --cs:0 0 20px rgba(0,200,240,.3);--gs:0 0 20px rgba(0,224,122,.3);--rs:0 0 20px rgba(255,41,82,.3);
+  --r8:8px;--r6:6px;
 }
 html{scroll-behavior:smooth;}
-body{background:var(--bg);color:var(--ink);font-family:'JetBrains Mono',monospace;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+body{background:var(--bg);color:var(--ink);font-family:'JetBrains Mono',monospace;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6;}
 ::selection{background:var(--c);color:#000;}
 a{color:inherit;text-decoration:none;}
 
-body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--ghost) 1px,transparent 1px),linear-gradient(90deg,var(--ghost) 1px,transparent 1px);background-size:48px 48px;opacity:.3;pointer-events:none;z-index:0;}
+/* GRID */
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:48px 48px;pointer-events:none;z-index:0;}
 
-/* NAV */
-nav{position:fixed;top:0;left:0;right:0;z-index:900;height:52px;background:rgba(5,11,18,.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--line);display:flex;align-items:center;}
-.nav-w{max-width:1160px;margin:0 auto;width:100%;padding:0 24px;display:flex;align-items:center;justify-content:space-between;}
-.logo{font-size:.78rem;font-weight:700;color:var(--c);letter-spacing:.04em;}
-.logo em{color:var(--dim);font-style:normal;}
-.nav-links{display:flex;gap:4px;align-items:center;}
-.nl{font-size:.7rem;padding:5px 12px;border-radius:5px;color:var(--dim);border:1px solid transparent;cursor:pointer;transition:.15s;background:none;}
-.nl:hover{color:var(--ink);border-color:var(--line);}
-.nl.gh{border-color:var(--c);color:var(--c);font-weight:700;}
-.nl.gh:hover{background:var(--cg);box-shadow:var(--cs);}
+/* scrollbar */
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:var(--mid);}
 
-/* LAYOUT */
-.w{max-width:1160px;margin:0 auto;padding:0 24px;position:relative;z-index:1;}
-section{padding:80px 0;}
-section:first-of-type{padding-top:0;}
+/* ─── NAV ─── */
+nav{position:fixed;top:0;left:0;right:0;z-index:900;height:54px;
+  background:rgba(4,9,15,.88);backdrop-filter:blur(24px) saturate(180%);
+  border-bottom:1px solid var(--line);display:flex;align-items:center;}
+.nav-w{max-width:1200px;margin:0 auto;width:100%;padding:0 28px;
+  display:flex;align-items:center;justify-content:space-between;}
+.logo{font-size:.8rem;font-weight:700;letter-spacing:.04em;}
+.logo-main{color:var(--c);}
+.logo-sep{color:var(--dim);}
+.logo-sub{color:var(--mid);}
+.nav-r{display:flex;gap:2px;align-items:center;}
+.na{font-size:.7rem;padding:6px 14px;border-radius:6px;color:var(--dim);
+  cursor:pointer;transition:.15s;background:none;border:none;font-family:inherit;}
+.na:hover{color:var(--ink);background:var(--ghost);}
+.na.gh{color:var(--c);border:1px solid rgba(0,200,240,.3);margin-left:6px;}
+.na.gh:hover{background:var(--cg);box-shadow:var(--cs);}
+.na.gh:focus{outline:2px solid var(--c);outline-offset:2px;}
 
-/* SECTION LABEL */
-.slabel{display:flex;align-items:center;gap:14px;margin-bottom:28px;}
-.slabel-num{font-size:.6rem;color:var(--dim);letter-spacing:.12em;}
-.slabel-text{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;}
-.slabel-text.c{color:var(--c);}
-.slabel-text.g{color:var(--g);}
-.slabel-text.r{color:var(--r);}
-.slabel-text.y{color:var(--y);}
-.slabel-line{flex:1;height:1px;background:linear-gradient(90deg,var(--ghost),transparent);}
+/* ─── LAYOUT ─── */
+.w{max-width:1200px;margin:0 auto;padding:0 28px;position:relative;z-index:1;}
+section{padding:88px 0;}
 
-h2{font-size:clamp(1.6rem,3vw,2.2rem);font-weight:700;line-height:1.1;letter-spacing:-.02em;margin-bottom:10px;}
-.sdesc{font-size:.82rem;color:var(--dim);line-height:1.8;max-width:62ch;margin-bottom:32px;}
-.sdesc code{color:var(--c);background:var(--cg);padding:1px 5px;border-radius:3px;font-size:.8rem;}
+/* ─── SECTION LABEL ─── */
+.sl{display:flex;align-items:center;gap:16px;margin-bottom:24px;}
+.sl-n{font-size:.58rem;letter-spacing:.14em;color:var(--dim);}
+.sl-t{font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;font-weight:700;}
+.sl-t.c{color:var(--c);}
+.sl-t.g{color:var(--g);}
+.sl-t.r{color:var(--r);}
+.sl-t.y{color:var(--y);}
+.sl-line{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent);}
+h2{font-family:'Inter',sans-serif;font-size:clamp(1.7rem,3vw,2.4rem);
+  font-weight:800;line-height:1.05;letter-spacing:-.035em;margin-bottom:12px;color:#E8F4FF;}
+.sdesc{font-size:.82rem;color:var(--mid);line-height:1.85;max-width:66ch;margin-bottom:32px;}
+.sdesc code,.sdesc samp{color:var(--c);background:var(--cg);padding:1px 6px;border-radius:3px;font-size:.78rem;}
 
-/* TAGS */
-.tag{display:inline-flex;align-items:center;padding:4px 10px;border-radius:4px;font-size:.65rem;font-weight:700;letter-spacing:.06em;border:1px solid;}
-.tag.c{color:var(--c);border-color:rgba(0,207,255,.3);background:var(--cg);}
-.tag.g{color:var(--g);border-color:rgba(0,232,122,.3);background:var(--gg);}
-.tag.r{color:var(--r);border-color:rgba(255,45,84,.3);background:var(--rg);}
-.tag.y{color:var(--y);border-color:rgba(240,180,41,.3);background:var(--yg);}
-.tag.dim{color:var(--dim);border-color:var(--line);}
+/* ─── TAGS ─── */
+.tag{display:inline-flex;align-items:center;padding:3px 9px;border-radius:4px;
+  font-size:.62rem;font-weight:700;letter-spacing:.05em;border:1px solid;}
+.tag.c{color:var(--c);border-color:rgba(0,200,240,.25);background:var(--cg);}
+.tag.g{color:var(--g);border-color:rgba(0,224,122,.25);background:var(--gg);}
+.tag.d{color:var(--mid);border-color:var(--line);}
+.tag.r{color:var(--r);border-color:rgba(255,41,82,.25);background:var(--rg);}
 
-/* BTN */
-.btn{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:700;padding:9px 20px;border-radius:7px;border:1px solid;cursor:pointer;transition:.18s;letter-spacing:.03em;display:inline-flex;align-items:center;gap:7px;}
-.btn:disabled{opacity:.4;cursor:not-allowed;}
+/* ─── BUTTONS ─── */
+.btn{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:700;
+  padding:9px 20px;border-radius:var(--r6);border:1px solid;cursor:pointer;
+  transition:.16s;letter-spacing:.025em;display:inline-flex;align-items:center;gap:8px;}
+.btn:disabled{opacity:.35;cursor:not-allowed;}
+.btn:focus-visible{outline:2px solid var(--c);outline-offset:2px;}
 .btn.c{background:var(--c);color:#000;border-color:var(--c);}
-.btn.c:hover:not(:disabled){box-shadow:var(--cs);filter:brightness(1.08);}
+.btn.c:hover:not(:disabled){filter:brightness(1.1);box-shadow:var(--cs);}
 .btn.g{background:transparent;border-color:var(--g);color:var(--g);}
 .btn.g:hover:not(:disabled){background:var(--gg);box-shadow:var(--gs);}
 .btn.r{background:transparent;border-color:var(--r);color:var(--r);}
 .btn.r:hover:not(:disabled){background:var(--rg);}
-.btn.ghost{background:transparent;border-color:var(--line);color:var(--dim);}
-.btn.ghost:hover:not(:disabled){border-color:var(--dim);color:var(--ink);}
+.btn.d{background:transparent;border-color:var(--line);color:var(--mid);}
+.btn.d:hover:not(:disabled){border-color:var(--dim);color:var(--ink);}
 
-/* TERMINAL */
-.term{background:#020A04;border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:.73rem;}
-.term-bar{background:#040E06;padding:10px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;}
-.term-dot{width:9px;height:9px;border-radius:50%;}
-.term-body{padding:18px 20px;overflow-y:auto;font-size:.72rem;line-height:1.9;color:#3D7A3D;max-height:380px;}
-.term-body::-webkit-scrollbar{width:4px;}
+/* ─── HERO ─── */
+.hero{min-height:100vh;display:flex;align-items:center;
+  padding:80px 28px 60px;position:relative;overflow:hidden;}
+#hc{position:absolute;inset:0;}
+.hero-inner{position:relative;z-index:1;max-width:1200px;margin:0 auto;
+  width:100%;display:grid;grid-template-columns:1fr 380px;gap:60px;align-items:center;}
+.hero-left{}
+.eyebrow{font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;color:var(--c);
+  margin-bottom:20px;display:flex;align-items:center;gap:10px;}
+.eyebrow::before{content:'';width:18px;height:1px;background:var(--c);}
+h1{font-family:'Inter',sans-serif;font-size:clamp(3rem,7vw,5.5rem);
+  font-weight:900;line-height:.92;letter-spacing:-.05em;margin-bottom:22px;color:#F0F8FF;}
+h1 .hl{color:var(--c);}
+.hero-desc{font-size:.88rem;color:var(--mid);max-width:52ch;line-height:1.85;margin-bottom:24px;}
+.hero-params{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:28px;}
+.hero-btns{display:flex;gap:10px;flex-wrap:wrap;}
+
+/* hero right panel */
+.hero-panel{background:rgba(7,16,26,.7);border:1px solid var(--line);
+  border-radius:var(--r8);padding:22px;backdrop-filter:blur(12px);}
+.hp-title{font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.hp-title::after{content:'';flex:1;height:1px;background:var(--ghost);}
+.hp-counter{display:flex;flex-direction:column;gap:3px;margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--ghost);}
+.hp-counter-label{font-size:.58rem;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;}
+.hp-counter-val{font-size:2.4rem;font-weight:700;color:var(--c);line-height:1;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;text-shadow:var(--cs);}
+.hp-counter-sub{font-size:.6rem;color:var(--dim);}
+.hp-rows{display:flex;flex-direction:column;gap:10px;}
+.hp-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+.hp-row-label{font-size:.65rem;color:var(--dim);}
+.hp-row-val{font-size:.72rem;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
+.hp-row-val.c{color:var(--c);}
+.hp-row-val.g{color:var(--g);}
+.hp-divider{height:1px;background:var(--ghost);margin:4px 0;}
+.live-badge{display:inline-flex;align-items:center;gap:5px;font-size:.6rem;color:var(--g);margin-top:14px;}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--g);animation:pulse 2s ease infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.25;}}
+
+/* ─── STEP PIPELINE ─── */
+.pipeline{display:flex;align-items:center;gap:0;margin-bottom:28px;}
+.pipe-step{display:flex;align-items:center;gap:10px;padding:10px 18px;
+  border:1px solid var(--line);background:var(--s1);border-radius:0;cursor:pointer;
+  transition:.15s;flex:1;position:relative;}
+.pipe-step:first-child{border-radius:var(--r6) 0 0 var(--r6);}
+.pipe-step:last-child{border-radius:0 var(--r6) var(--r6) 0;}
+.pipe-step:not(:last-child){border-right:none;}
+.pipe-num{width:20px;height:20px;border-radius:50%;border:1px solid var(--dim);
+  display:flex;align-items:center;justify-content:center;font-size:.6rem;
+  color:var(--dim);flex-shrink:0;font-weight:700;transition:.15s;}
+.pipe-label{font-size:.68rem;font-weight:700;color:var(--dim);letter-spacing:.03em;transition:.15s;}
+.pipe-sub{font-size:.55rem;color:var(--ghost);transition:.15s;}
+.pipe-step.active{background:var(--cg);border-color:rgba(0,200,240,.35);z-index:1;}
+.pipe-step.active .pipe-num{border-color:var(--c);color:var(--c);background:var(--cg);}
+.pipe-step.active .pipe-label{color:var(--c);}
+.pipe-step.active .pipe-sub{color:var(--mid);}
+.pipe-step.done{background:var(--gg);border-color:rgba(0,224,122,.25);}
+.pipe-step.done .pipe-num{border-color:var(--g);color:var(--g);background:var(--gg);}
+.pipe-step.done .pipe-label{color:var(--g);}
+.pipe-step.done .pipe-sub{color:var(--mid);}
+
+/* ─── OTS GRID ─── */
+.ots-grid{display:grid;grid-template-columns:260px 1fr;gap:18px;align-items:start;}
+.ots-left{display:flex;flex-direction:column;gap:12px;}
+.params-card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.params-card-hdr{padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--line);
+  font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);}
+.params-table{width:100%;border-collapse:collapse;}
+.params-table tr{border-bottom:1px solid var(--ghost);}
+.params-table tr:last-child{border-bottom:none;}
+.params-table td{padding:7px 14px;font-size:.7rem;}
+.params-table td:first-child{color:var(--dim);}
+.params-table td:last-child{color:var(--c);font-weight:700;text-align:right;}
+.ots-btn-col{display:flex;flex-direction:column;gap:8px;}
+.info-box{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);padding:14px 16px;}
+.info-box-label{font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px;}
+.info-hex{font-size:.65rem;color:var(--dim);word-break:break-all;line-height:1.7;min-height:32px;}
+.info-hex.c{color:var(--c);}
+.info-hex.g{color:var(--g);}
+
+/* ─── TERMINAL ─── */
+.term{background:#020C04;border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.term-bar{background:#03100601;padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.04);
+  display:flex;align-items:center;gap:8px;}
+.term-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.term-fname{font-size:.65rem;color:rgba(255,255,255,.2);margin-left:6px;letter-spacing:.02em;}
+.term-body{padding:18px 22px;overflow-y:auto;max-height:400px;line-height:2;}
+.term-body::-webkit-scrollbar{width:3px;}
 .term-body::-webkit-scrollbar-thumb{background:#0F2A10;}
-.tl{display:flex;gap:10px;}
-.tl .ts{color:#1A4A1A;flex-shrink:0;user-select:none;}
-.tl .tm{color:#3D7A3D;}
-.tl .tm .kw{color:#5BA05B;}
-.tl .tm .val{color:#7FBF7F;}
-.tl .tm .hi{color:#00E87A;font-weight:700;}
-.tl .tm .err{color:#FF2D54;font-weight:700;}
-.tl .tm .pk{color:#00CFFF;}
-.tl .tm .num{color:#F0B429;}
-.tl .tm .dim{color:#2A5A2A;}
+.tl{display:flex;gap:10px;font-size:.71rem;}
+.tl-ts{color:#15401A;flex-shrink:0;font-variant-numeric:tabular-nums;user-select:none;}
+.tl-m{color:#3A7040;}
+.tl-m .kw{color:#5A9060;}
+.tl-m .val{color:#6AAF70;}
+.tl-m .hi{color:#00E07A;font-weight:700;}
+.tl-m .err{color:#FF2952;font-weight:700;}
+.tl-m .cyan{color:#00C8F0;}
+.tl-m .num{color:#F2B238;}
+.tl-m .dim2{color:#1E4A22;}
+.tl-m .bold{font-weight:700;}
 
-/* CARDS */
-.card{background:var(--s1);border:1px solid var(--line);border-radius:10px;padding:22px;}
-.card-title{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
-.card-title .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+/* ─── DIGIT TABLE ─── */
+.digit-wrap{margin-top:14px;}
+.digit-card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.digit-card-hdr{padding:12px 18px;background:var(--s2);border-bottom:1px solid var(--line);
+  display:flex;justify-content:space-between;align-items:center;}
+.digit-card-hdr-l{font-size:.62rem;font-weight:700;color:var(--ink);}
+.digit-card-hdr-r{font-size:.6rem;color:var(--dim);}
+.digit-scroll{overflow-x:auto;}
+table.dt{width:100%;border-collapse:collapse;font-size:.66rem;}
+table.dt th{padding:8px 12px;background:var(--s2);color:var(--dim);font-weight:500;
+  text-align:center;border-bottom:1px solid var(--line);white-space:nowrap;}
+table.dt td{padding:6px 12px;text-align:center;border-bottom:1px solid var(--ghost);
+  font-variant-numeric:tabular-nums;}
+table.dt tr:last-child td{border-bottom:none;}
+table.dt tr.cs-row td{background:rgba(242,178,56,.04);}
+.chain-bar-cell{width:80px;}
+.chain-bar-wrap{height:6px;background:var(--ghost);border-radius:3px;overflow:hidden;}
+.chain-bar-fill{height:100%;border-radius:3px;}
+.csum-note{padding:10px 16px;font-size:.62rem;color:var(--dim);
+  border-top:1px solid var(--ghost);background:var(--s2);}
 
-/* INPUTS */
-.inp{font-family:'JetBrains Mono',monospace;font-size:.8rem;background:var(--s2);border:1px solid var(--line);border-radius:7px;padding:10px 14px;color:var(--ink);outline:none;width:100%;transition:.15s;}
-.inp:focus{border-color:var(--c);box-shadow:0 0 0 2px rgba(0,207,255,.08);}
-.inp-label{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);display:block;margin-bottom:6px;}
+/* ─── THRESHOLD ─── */
+.thresh-stage{display:flex;align-items:stretch;justify-content:center;gap:0;flex-wrap:wrap;padding:24px 0;}
+.t-box{flex:0 0 190px;padding:18px;background:var(--s1);border:1px solid var(--line);
+  border-radius:var(--r8);display:flex;flex-direction:column;gap:10px;cursor:pointer;
+  transition:.2s;user-select:none;}
+.t-box:hover{border-color:var(--mid);}
+.t-box.active{border-color:rgba(0,200,240,.4);background:rgba(0,200,240,.04);}
+.t-box.compromised{border-color:rgba(255,41,82,.5);background:var(--rg);animation:shk .22s ease;}
+@keyframes shk{0%,100%{transform:translateX(0);}25%{transform:translateX(-5px);}75%{transform:translateX(5px);}}
+.t-box.inactive{opacity:.3;cursor:default;}
+.t-label{font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;}
+.t-label.a{color:var(--c);}
+.t-label.c{color:var(--r);}
+.t-label.i{color:var(--dim);}
+.t-prf{font-size:.6rem;color:var(--dim);line-height:1.65;word-break:break-all;min-height:40px;}
+.t-prf .ok{color:var(--g);}
+.t-prf .fail{color:var(--r);}
+.t-seed{font-size:.55rem;color:var(--ghost);}
+.agg-col{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;flex:0 0 160px;padding:10px;}
+.agg-ring{width:60px;height:60px;border-radius:50%;border:1.5px solid var(--p);
+  display:flex;align-items:center;justify-content:center;font-size:1.3rem;
+  box-shadow:0 0 24px rgba(157,111,255,.2);}
+.agg-label{font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--p);font-weight:700;}
+.agg-eq{font-size:.58rem;color:var(--dim);text-align:center;line-height:1.6;}
+.flow-col{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;padding:0 4px;padding-bottom:16px;}
+.flow-line{height:1.5px;width:40px;background:var(--line);transition:.3s;}
+.flow-line.on{background:var(--c);}
+.flow-tip{font-size:.4rem;color:var(--line);transition:.3s;}
+.flow-tip.on{color:var(--c);}
+.flow-note{font-size:.5rem;color:var(--dim);text-align:center;line-height:1.4;white-space:nowrap;}
+.thresh-bottom{border-top:1px solid var(--line);padding-top:20px;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.verdict{font-size:.9rem;font-weight:700;}
+.verdict.ok{color:var(--g);}
+.verdict.fail{color:var(--r);}
+.crv-detail{font-size:.63rem;color:var(--dim);line-height:1.7;margin-top:6px;}
+.crv-detail .v{color:var(--c);}
+.crv-detail .blocked{color:var(--r);}
 
-/* HERO */
-.hero{min-height:100vh;display:flex;align-items:center;padding:80px 24px 60px;position:relative;overflow:hidden;}
-#hero-canvas{position:absolute;inset:0;opacity:.12;}
-.hero-w{position:relative;z-index:1;max-width:1160px;margin:0 auto;width:100%;}
-.hero-eyebrow{font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;color:var(--c);margin-bottom:22px;display:flex;align-items:center;gap:12px;}
-.hero-eyebrow::before{content:'';width:20px;height:1px;background:var(--c);}
-h1{font-size:clamp(2.6rem,6vw,4.8rem);font-weight:700;line-height:.95;letter-spacing:-.04em;margin-bottom:24px;color:#fff;}
-h1 span{color:var(--c);}
-.hero-p{font-size:.9rem;color:var(--dim);max-width:56ch;line-height:1.8;margin-bottom:28px;}
-.hero-params{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:32px;}
-.hero-btns{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:32px;}
-.hero-live{font-size:.7rem;color:var(--dim);display:flex;align-items:center;gap:10px;}
-.hero-live .counter{color:var(--c);font-weight:700;font-variant-numeric:tabular-nums;}
-.live-dot{width:6px;height:6px;border-radius:50%;background:var(--g);animation:pulse 2s ease infinite;}
-@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+/* ─── MERKLE ─── */
+.merkle-card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.merkle-toolbar{padding:14px 20px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+#msv{width:100%;height:320px;display:block;}
+.mn-circle{fill:var(--s2);stroke:var(--line);stroke-width:1.5;transition:all .35s;}
+.mn-circle.leaf{stroke:var(--dim);}
+.mn-circle.leaf-on{stroke:var(--y);filter:drop-shadow(0 0 7px rgba(242,178,56,.45));}
+.mn-circle.int-on{stroke:var(--c);filter:drop-shadow(0 0 8px rgba(0,200,240,.4));}
+.mn-circle.root-on{stroke:var(--p);filter:drop-shadow(0 0 12px rgba(157,111,255,.45));}
+.mn-circle.auth{stroke:var(--g);filter:drop-shadow(0 0 8px rgba(0,224,122,.4));}
+.mn-text{font-family:'JetBrains Mono',monospace;font-size:9px;fill:var(--dim);text-anchor:middle;}
+.mn-text.on{fill:var(--ink);}
+.me{stroke:var(--ghost);stroke-width:1.5;fill:none;transition:stroke .35s,stroke-width .35s;}
+.me.on{stroke:var(--c);stroke-width:2;}
+.me.auth{stroke:var(--g);stroke-width:2.5;}
+.merkle-foot{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:20px;flex-wrap:wrap;align-items:center;}
+.mleg{display:flex;align-items:center;gap:6px;font-size:.62rem;color:var(--dim);}
+.mleg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.merkle-root{margin-left:auto;font-size:.62rem;color:var(--dim);}
+.merkle-root span{color:var(--c);}
 
-/* OTS SECTION */
-.ots-grid{display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start;}
-.ots-controls{display:flex;flex-direction:column;gap:14px;}
-.param-list{background:var(--s1);border:1px solid var(--line);border-radius:8px;padding:16px;}
-.param-list dt{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);}
-.param-list dd{font-size:.82rem;color:var(--c);font-weight:700;margin-bottom:8px;}
-.param-list dd:last-child{margin-bottom:0;}
-.ots-btn-group{display:flex;flex-direction:column;gap:8px;}
-.sig-box{background:var(--s1);border:1px solid var(--line);border-radius:8px;padding:14px;}
-.sig-box label{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);display:block;margin-bottom:6px;}
-.sig-hex{font-size:.63rem;color:var(--dim);word-break:break-all;line-height:1.65;min-height:36px;}
-.sig-hex.live{color:var(--g);}
-.sig-hex.pk{color:var(--c);}
+/* ─── XOR ─── */
+.xor-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+.xor-card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);padding:22px;display:flex;flex-direction:column;gap:14px;}
+.xor-metric{display:flex;flex-direction:column;gap:5px;}
+.xor-metric-label{font-size:.65rem;color:var(--dim);display:flex;justify-content:space-between;}
+.xor-metric-label span{font-weight:700;}
+.xor-track{height:8px;background:var(--ghost);border-radius:4px;overflow:hidden;}
+.xor-bar{height:100%;width:0;border-radius:4px;transition:width .9s cubic-bezier(.4,0,.2,1);}
+.xor-bar.b{background:linear-gradient(90deg,rgba(255,41,82,.6),var(--r));}
+.xor-bar.u{background:linear-gradient(90deg,rgba(0,224,122,.6),var(--g));}
+.xor-speedup{font-size:3rem;font-weight:700;color:var(--g);line-height:1;letter-spacing:-.04em;}
+.xor-speedup-label{font-size:.65rem;color:var(--dim);margin-top:4px;}
+.xor-speedup-sub{font-size:.6rem;color:var(--ghost);margin-top:2px;}
 
-/* DIGIT TABLE */
-.digit-table-wrap{overflow-x:auto;margin-top:16px;}
-.digit-table{border-collapse:collapse;font-size:.65rem;width:100%;}
-.digit-table th{padding:6px 8px;background:var(--s2);color:var(--dim);font-weight:500;text-align:center;border:1px solid var(--line);}
-.digit-table td{padding:6px 8px;text-align:center;border:1px solid var(--ghost);font-variant-numeric:tabular-nums;}
-.digit-table td.pos{color:var(--dim);}
-.digit-table td.digit{font-weight:700;}
-.digit-table td.chain{color:var(--dim);font-size:.6rem;}
-.digit-table tr.csum td{background:rgba(240,180,41,.06);}
-
-/* THRESHOLD */
-.thresh-stage{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;padding:28px 0;}
-.trustee-box{display:flex;flex-direction:column;gap:10px;padding:18px;background:var(--s1);border:1px solid var(--line);border-radius:10px;width:200px;cursor:pointer;transition:.25s;user-select:none;}
-.trustee-box:hover{border-color:var(--dim);}
-.trustee-box.active{border-color:var(--c);background:rgba(0,207,255,.04);}
-.trustee-box.compromised{border-color:var(--r);background:var(--rg);animation:shk .25s ease;}
-@keyframes shk{0%,100%{transform:translateX(0);}33%{transform:translateX(-4px);}66%{transform:translateX(4px);}}
-.trustee-box.inactive{opacity:.35;}
-.tb-label{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;}
-.tb-label.active{color:var(--c);}
-.tb-label.compromised{color:var(--r);}
-.tb-label.inactive{color:var(--dim);}
-.tb-prf{font-size:.58rem;color:var(--dim);line-height:1.6;word-break:break-all;min-height:36px;}
-.tb-prf .computed{color:var(--g);}
-.tb-prf .missing{color:var(--r);}
-.agg-box{display:flex;flex-direction:column;align-items:center;gap:8px;padding:18px 24px;width:180px;}
-.agg-ring{width:64px;height:64px;border-radius:50%;border:2px solid var(--p);display:flex;align-items:center;justify-content:center;font-size:1.4rem;box-shadow:0 0 20px rgba(168,85,247,.25);}
-.agg-label{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--p);font-weight:700;}
-.agg-xor{font-size:.6rem;color:var(--dim);text-align:center;line-height:1.6;}
-.flow-arrow{display:flex;flex-direction:column;align-items:center;gap:2px;padding:0 8px;margin-bottom:18px;}
-.fa-line{height:2px;width:48px;background:var(--line);transition:.4s;}
-.fa-line.active{background:var(--c);}
-.fa-tip{font-size:.45rem;color:var(--line);}
-.fa-tip.active{color:var(--c);}
-.fa-label{font-size:.5rem;color:var(--dim);text-align:center;line-height:1.4;}
-.thresh-result{border-top:1px solid var(--line);padding-top:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
-.thresh-verdict{font-size:.88rem;font-weight:700;}
-.thresh-verdict.ok{color:var(--g);}
-.thresh-verdict.fail{color:var(--r);}
-.thresh-crv{font-size:.65rem;color:var(--dim);line-height:1.6;}
-.thresh-crv .val{color:var(--c);}
-.thresh-crv .blocked{color:var(--r);}
-
-/* MERKLE SVG */
-.merkle-wrap{background:var(--s1);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
-.merkle-toolbar{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-#msv{width:100%;height:320px;}
-.mnode-circle{fill:var(--s2);stroke:var(--line);stroke-width:1.5;transition:all .4s;}
-.mnode-circle.leaf-active{stroke:var(--y);filter:drop-shadow(0 0 6px rgba(240,180,41,.5));}
-.mnode-circle.internal-done{stroke:var(--c);filter:drop-shadow(0 0 8px rgba(0,207,255,.35));}
-.mnode-circle.root-done{stroke:var(--p);filter:drop-shadow(0 0 12px rgba(168,85,247,.45));}
-.mnode-circle.auth{stroke:var(--g);filter:drop-shadow(0 0 8px rgba(0,232,122,.4));}
-.mnode-text{font-family:'JetBrains Mono',monospace;font-size:9px;fill:var(--dim);text-anchor:middle;}
-.mnode-text.active{fill:var(--ink);}
-.medge{stroke:var(--ghost);stroke-width:1.5;fill:none;transition:stroke .4s,stroke-width .4s;}
-.medge.active{stroke:var(--c);stroke-width:2;}
-.medge.auth{stroke:var(--g);stroke-width:2.5;}
-.merkle-footer{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:16px;font-size:.65rem;flex-wrap:wrap;}
-.mleg{display:flex;align-items:center;gap:6px;}
-.mleg-dot{width:8px;height:8px;border-radius:50%;}
-
-/* BENCH */
+/* ─── BENCH ─── */
 .bench-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-.brow{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
-.brow-lbl{font-size:.7rem;color:var(--dim);flex:0 0 170px;line-height:1.3;}
-.brow-lbl small{font-size:.58rem;display:block;color:#1E3040;}
-.btrack{flex:1;height:7px;background:var(--s2);border-radius:4px;overflow:hidden;}
-.bfill{height:100%;width:0;border-radius:4px;transition:width 1.5s cubic-bezier(.4,0,.2,1);}
-.bfill.c{background:linear-gradient(90deg,rgba(0,207,255,.5),var(--c));}
-.bfill.g{background:linear-gradient(90deg,rgba(0,232,122,.5),var(--g));}
-.bfill.y{background:linear-gradient(90deg,rgba(240,180,41,.5),var(--y));}
-.bfill.r{background:linear-gradient(90deg,rgba(255,45,84,.5),var(--r));}
-.bval{font-size:.7rem;font-weight:700;width:52px;text-align:right;flex-shrink:0;}
-.bval.c{color:var(--c);}
-.bval.g{color:var(--g);}
-.bval.y{color:var(--y);}
-.bnote{font-size:.62rem;color:var(--ghost);border-top:1px solid var(--ghost);margin-top:10px;padding-top:8px;}
+.bc{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);padding:22px;}
+.bc-hdr{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.bc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.br{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+.br-l{font-size:.7rem;color:var(--mid);flex:0 0 175px;line-height:1.3;}
+.br-l small{font-size:.58rem;display:block;color:var(--dim);}
+.bt{flex:1;height:6px;background:var(--s2);border-radius:3px;overflow:hidden;}
+.bf{height:100%;width:0;border-radius:3px;transition:width 1.5s cubic-bezier(.4,0,.2,1);}
+.bf.c{background:linear-gradient(90deg,rgba(0,200,240,.5),var(--c));}
+.bf.g{background:linear-gradient(90deg,rgba(0,224,122,.5),var(--g));}
+.bf.y{background:linear-gradient(90deg,rgba(242,178,56,.5),var(--y));}
+.bf.r{background:linear-gradient(90deg,rgba(255,41,82,.5),var(--r));}
+.bv{font-size:.68rem;font-weight:700;width:50px;text-align:right;flex-shrink:0;}
+.bv.c{color:var(--c);}
+.bv.g{color:var(--g);}
+.bv.y{color:var(--y);}
+.bn{font-size:.6rem;color:var(--ghost);border-top:1px solid var(--ghost);margin-top:10px;padding-top:8px;}
 
-/* XOR BENCH */
-.xor-wrap{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
-.xor-result{display:flex;flex-direction:column;gap:12px;}
-.xor-bar-row{display:flex;flex-direction:column;gap:4px;}
-.xor-bar-label{font-size:.68rem;color:var(--dim);}
-.xor-track{height:10px;background:var(--s2);border-radius:5px;overflow:hidden;position:relative;}
-.xor-fill{height:100%;width:0;border-radius:5px;transition:width .8s ease;}
-.xor-fill.byte{background:var(--r);}
-.xor-fill.u32{background:var(--g);}
-.xor-val{font-size:.72rem;font-weight:700;margin-top:2px;}
-.xor-speedup{font-size:2rem;font-weight:700;color:var(--g);line-height:1;}
-.xor-speedup small{font-size:.75rem;color:var(--dim);font-weight:400;display:block;}
-.code-block{background:var(--s1);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
-.code-hdr{background:var(--s2);padding:9px 16px;border-bottom:1px solid var(--line);font-size:.65rem;color:var(--dim);display:flex;gap:8px;}
-.code-hdr .fn{color:var(--c);}
-pre{padding:18px;font-size:.76rem;line-height:1.85;overflow-x:auto;color:var(--dim);}
+/* ─── COMPLEXITY TABLE ─── */
+.cxtable-wrap{overflow-x:auto;margin-top:16px;}
+table.cx{width:100%;border-collapse:collapse;font-size:.72rem;}
+table.cx th{padding:10px 14px;background:var(--s2);color:var(--dim);font-weight:500;
+  text-align:left;border-bottom:1px solid var(--line);}
+table.cx td{padding:10px 14px;border-bottom:1px solid var(--ghost);color:var(--ink);}
+table.cx td:first-child{color:var(--c);font-weight:700;}
+table.cx td:nth-child(2){color:var(--mid);}
+table.cx td:nth-child(3){font-family:'JetBrains Mono',monospace;color:var(--y);}
+table.cx tr:last-child td{border-bottom:none;}
+table.cx tr.divrow td{border-top:1px solid var(--line);}
+
+/* ─── OPT CARDS ─── */
+.opt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.oc{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.oc-top{padding:20px 20px 0;}
+.oc-tag{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-bottom:9px;}
+.oc-tag.c{color:var(--c);}
+.oc-tag.g{color:var(--g);}
+.oc-tag.y{color:var(--y);}
+.oc h3{font-family:'Inter',sans-serif;font-size:1rem;font-weight:700;margin-bottom:8px;color:#E8F4FF;}
+.oc p{font-size:.75rem;color:var(--mid);line-height:1.7;margin-bottom:14px;}
+.oc-cmp{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);}
+.ocol{background:var(--s2);padding:14px 14px;}
+.ocol-l{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost);margin-bottom:5px;}
+.ocol-v{font-size:1.35rem;font-weight:700;line-height:1;}
+.ocol-v.b{color:var(--r);}
+.ocol-v.a{color:var(--g);}
+.ocol-s{font-size:.6rem;color:var(--dim);margin-top:5px;line-height:1.45;}
+.oc-badge{padding:9px;text-align:center;font-size:.68rem;font-weight:700;letter-spacing:.03em;}
+.oc-badge.c{background:var(--cg);color:var(--c);}
+.oc-badge.g{background:var(--gg);color:var(--g);}
+.oc-badge.y{background:var(--yg);color:var(--y);}
+
+/* ─── CODE ─── */
+.code-block{background:var(--s1);border:1px solid var(--line);border-radius:var(--r8);overflow:hidden;}
+.code-hdr{background:var(--s2);padding:10px 18px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:10px;font-size:.65rem;color:var(--dim);}
+.code-fn{color:var(--c);}
+pre{padding:20px 22px;font-size:.77rem;line-height:1.85;overflow-x:auto;color:var(--mid);}
 pre .kw{color:var(--p);}
 pre .fn{color:var(--c);}
-pre .cm{color:var(--ghost);}
+pre .cm{color:var(--dim);}
 pre .st{color:var(--g);}
 pre .nu{color:var(--y);}
 
-/* OPT CARDS */
-.opt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
-.ocard{background:var(--s1);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
-.ocard-top{padding:18px 18px 0;}
-.ocard-tag{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;font-weight:700;}
-.ocard-tag.c{color:var(--c);}
-.ocard-tag.g{color:var(--g);}
-.ocard-tag.y{color:var(--y);}
-.ocard h3{font-size:.95rem;font-weight:700;margin-bottom:8px;color:var(--ink);}
-.ocard p{font-size:.75rem;color:var(--dim);line-height:1.65;margin-bottom:14px;}
-.ocard-cmp{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);}
-.ocol{background:var(--s2);padding:12px 14px;}
-.ocol-lbl{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ghost);margin-bottom:5px;}
-.ocol-val{font-size:1.3rem;font-weight:700;line-height:1;}
-.ocol-val.before{color:var(--r);}
-.ocol-val.after{color:var(--g);}
-.ocol-sub{font-size:.62rem;color:var(--dim);margin-top:4px;line-height:1.4;}
-.ocard-badge{padding:8px;text-align:center;font-size:.68rem;font-weight:700;}
-.ocard-badge.c{background:var(--cg);color:var(--c);}
-.ocard-badge.g{background:var(--gg);color:var(--g);}
-.ocard-badge.y{background:var(--yg);color:var(--y);}
-
-/* FOOTER */
+/* ─── FOOTER ─── */
 footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index:1;}
-.foot-w{max-width:1160px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;gap:16px;font-size:.68rem;color:var(--dim);flex-wrap:wrap;}
+.foot-w{max-width:1200px;margin:0 auto;padding:0 28px;
+  display:flex;justify-content:space-between;align-items:center;gap:16px;
+  font-size:.68rem;color:var(--dim);flex-wrap:wrap;}
 .foot-w a:hover{color:var(--c);}
 
-/* UTILS */
-.reveal{opacity:0;transform:translateY(14px);transition:.55s;}
-.reveal.in{opacity:1;transform:none;}
-.mt8{margin-top:8px;}
-.mt16{margin-top:16px;}
-.mt24{margin-top:24px;}
-.flex-gap{display:flex;gap:10px;flex-wrap:wrap;}
+/* ─── REVEAL ─── */
+.rv{opacity:0;transform:translateY(12px);transition:.5s ease;}
+.rv.in{opacity:1;transform:none;}
 
-@media(max-width:860px){
+/* ─── STRIPED SECTIONS ─── */
+.sec-alt{background:var(--s1);border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+
+@media(max-width:900px){
+  .hero-inner{grid-template-columns:1fr;}
+  .hero-panel{display:none;}
   .ots-grid{grid-template-columns:1fr;}
   .bench-grid{grid-template-columns:1fr;}
   .opt-grid{grid-template-columns:1fr;}
-  .xor-wrap{grid-template-columns:1fr;}
+  .xor-grid{grid-template-columns:1fr;}
   .thresh-stage{gap:8px;}
-  .fa-line{width:24px;}
+  .flow-col{padding:0 2px;padding-bottom:12px;}
+  .flow-line{width:20px;}
 }
 </style>
 </head>
 <body>
 
+<!-- ══════════ NAV ══════════ -->
 <nav>
   <div class="nav-w">
-    <div class="logo">hash-sig<em>/</em>distributed</div>
-    <div class="nav-links">
-      <a href="#ots" class="nl">OTS</a>
-      <a href="#threshold" class="nl">Threshold</a>
-      <a href="#merkle" class="nl">Merkle</a>
-      <a href="#perf" class="nl">Perf</a>
-      <a href="https://github.com/iabhi92/crypto-project" target="_blank" class="nl gh">GitHub ↗</a>
+    <div class="logo">
+      <span class="logo-main">hash-sig</span><span class="logo-sep">/</span><span class="logo-sub">distributed</span>
+    </div>
+    <div class="nav-r">
+      <a href="#ots" class="na">OTS</a>
+      <a href="#threshold" class="na">Threshold</a>
+      <a href="#merkle" class="na">Merkle</a>
+      <a href="#perf" class="na">Perf</a>
+      <a href="https://github.com/iabhi92/crypto-project" target="_blank" class="na gh">GitHub ↗</a>
     </div>
   </div>
 </nav>
 
-<!-- ═══════════ HERO ═══════════ -->
+<!-- ══════════ HERO ══════════ -->
 <section class="hero">
-  <canvas id="hero-canvas"></canvas>
-  <div class="hero-w">
-    <div class="hero-eyebrow">Kelsey, Lang &amp; Lucks · IACR CiC 2/2/24 · Python</div>
-    <h1>Distributed<br>Hash-Based<br><span>Threshold Signatures</span></h1>
-    <p class="hero-p">k-of-n signing where each trustee contributes a PRF share. No individual seed reconstructs the signing key. Verification interface is identical to standard stateful HBS — the distributed protocol is transparent to the verifier.</p>
-    <div class="hero-params">
-      <span class="tag c">N=128 bits</span>
-      <span class="tag dim">W=8 · CHAIN_LEN=256</span>
-      <span class="tag dim">A+C=18 chains</span>
-      <span class="tag g">288 B signatures</span>
-      <span class="tag dim">k-of-n threshold</span>
-      <span class="tag dim">stdlib only</span>
+  <canvas id="hc"></canvas>
+  <div class="hero-inner">
+    <div class="hero-left">
+      <div class="eyebrow">IACR CiC 2/2/24 &nbsp;·&nbsp; Kelsey, Lang &amp; Lucks &nbsp;·&nbsp; Python</div>
+      <h1>Distributed<br>Hash-Based<br><span class="hl">Threshold</span><br>Signatures</h1>
+      <p class="hero-desc">
+        k trustees sign in two PRF rounds — no individual seed reconstructs the signing key.
+        CRV masking ensures a coalition of size k−1 learns nothing about the aggregate.
+        AggregatorVerify() is identical to stateful HBS: verifier is unaware of the distributed protocol.
+      </p>
+      <div class="hero-params">
+        <span class="tag c">N=128 bits</span>
+        <span class="tag d">W=8 · CHAIN_LEN=256</span>
+        <span class="tag d">A+C=18 chains</span>
+        <span class="tag g">288 B signatures</span>
+        <span class="tag d">stdlib only · 73 tests</span>
+      </div>
+      <div class="hero-btns">
+        <button class="btn c" onclick="scrollToOTS()">▶ winternitz_keygen()</button>
+        <a href="https://cic.iacr.org/p/2/2/24/pdf" target="_blank" class="btn d">Paper ↗</a>
+      </div>
     </div>
-    <div class="hero-btns">
-      <button class="btn c" onclick="document.getElementById('ots').scrollIntoView({behavior:'smooth'});startKeygen();">▶ winternitz_keygen()</button>
-      <a href="https://cic.iacr.org/p/2/2/24/pdf" target="_blank" class="btn ghost">Read paper ↗</a>
-    </div>
-    <div class="hero-live">
-      <span class="live-dot"></span>
-      SHA-256 ops: <span class="counter" id="hops">0</span>
-      &nbsp;·&nbsp; All values computed live via <code style="font-size:.65rem;color:var(--c)">crypto.subtle.digest</code>
+
+    <div class="hero-panel">
+      <div class="hp-title">Live computation</div>
+      <div class="hp-counter">
+        <div class="hp-counter-label">SHA-256 ops</div>
+        <div class="hp-counter-val" id="hops">0</div>
+        <div class="hp-counter-sub">crypto.subtle.digest · all values computed here</div>
+      </div>
+      <div class="hp-rows">
+        <div class="hp-row"><span class="hp-row-label">Keygen (Python)</span><span class="hp-row-val y">3.43 ms</span></div>
+        <div class="hp-row"><span class="hp-row-label">Sign (Python)</span><span class="hp-row-val g">0.003 ms</span></div>
+        <div class="hp-row"><span class="hp-row-label">Verify (Python)</span><span class="hp-row-val c">1.42 ms</span></div>
+        <div class="hp-divider"></div>
+        <div class="hp-row"><span class="hp-row-label">AggSign k=2 (Python)</span><span class="hp-row-val y">7.28 ms</span></div>
+        <div class="hp-row"><span class="hp-row-label">AggVerify k=2</span><span class="hp-row-val g">1.53 ms</span></div>
+        <div class="hp-divider"></div>
+        <div class="hp-row"><span class="hp-row-label">_xor_many() speedup</span><span class="hp-row-val c">5.9×</span></div>
+        <div class="hp-row"><span class="hp-row-label">BLAKE2b keygen</span><span class="hp-row-val g">1.18× faster</span></div>
+      </div>
+      <div class="live-badge"><span class="live-dot"></span>Keygen running updates this counter</div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════ OTS ═══════════ -->
+<!-- ══════════ OTS ══════════ -->
 <section id="ots">
 <div class="w">
-  <div class="slabel reveal">
-    <span class="slabel-num">01</span>
-    <span class="slabel-text c">WINTERNITZ OTS</span>
-    <div class="slabel-line"></div>
+  <div class="sl rv">
+    <span class="sl-n">01</span>
+    <span class="sl-t c">WINTERNITZ OTS — KEYGEN · SIGN · VERIFY</span>
+    <div class="sl-line"></div>
   </div>
-  <h2 class="reveal">Keygen, sign, and verify.<br>Computed in this tab.</h2>
-  <p class="sdesc reveal">
-    <code>hash_lms(tweak, *data)</code> prepends each tweak element as a 4-byte big-endian integer, concatenates all data, and returns SHA-256(result)[:N_BYTES]. Chain step: <code>hash_lms([2, i, j, keyId], val)</code>. Keygen runs 18 chains × 255 steps = 4590 SHA-256 calls.
+  <h2 class="rv">Full protocol. Real SHA-256. Every run is fresh.</h2>
+  <p class="sdesc rv">
+    <code>hash_lms(tweak, *data)</code> = SHA-256(tweak₀_be32 ‖ … ‖ data₀ ‖ data₁ ‖ …)[:N_BYTES].
+    Chain step: <code>hash_lms([2, i, j, keyId], val)</code>.
+    Keygen: 18 chains × 255 steps = 4,590 calls. Sign: chain lookup at digit position b_all[i].
+    Verify: hash forward CHAIN_LEN−1−b_all[i] steps, reconstruct PK.
   </p>
 
-  <div class="ots-grid reveal">
-    <!-- LEFT: controls -->
-    <div class="ots-controls">
-      <div class="param-list">
-        <dl>
-          <dt>N_BYTES</dt><dd>16 (128-bit security)</dd>
-          <dt>W</dt><dd>8 → CHAIN_LEN = 256</dd>
-          <dt>A</dt><dd>16 message digits</dd>
-          <dt>C</dt><dd>2 checksum digits</dd>
-          <dt>A+C</dt><dd>18 OTS chains</dd>
-          <dt>keyId</dt><dd id="keyid-display">0</dd>
-        </dl>
-      </div>
+  <!-- pipeline indicator -->
+  <div class="pipeline rv" id="pipeline">
+    <div class="pipe-step active" id="ps-0" onclick="startKeygen()">
+      <div class="pipe-num">1</div>
+      <div><div class="pipe-label">KEYGEN</div><div class="pipe-sub">winternitz_keygen(keyId)</div></div>
+    </div>
+    <div class="pipe-step" id="ps-1" onclick="if(keyState)startSign()">
+      <div class="pipe-num">2</div>
+      <div><div class="pipe-label">SIGN</div><div class="pipe-sub">winternitz_sign(M, R, keyId, seeds)</div></div>
+    </div>
+    <div class="pipe-step" id="ps-2" onclick="if(sigState)startVerify()">
+      <div class="pipe-num">3</div>
+      <div><div class="pipe-label">VERIFY</div><div class="pipe-sub">winternitz_verify(M, R, Z, keyId)</div></div>
+    </div>
+  </div>
 
-      <div class="ots-btn-group">
-        <button class="btn c" id="keygen-btn" onclick="startKeygen()">winternitz_keygen()</button>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
-          <label class="inp-label">message</label>
-          <input class="inp" id="msg-inp" value="hello distributed world" placeholder="message to sign">
-        </div>
-        <button class="btn g" id="sign-btn" onclick="startSign()" disabled>winternitz_sign()</button>
-        <button class="btn ghost" id="verify-btn" onclick="startVerify()" disabled>winternitz_verify()</button>
-        <button class="btn r" onclick="resetOTS()" style="margin-top:4px;">↺ reset</button>
+  <div class="ots-grid rv">
+    <!-- LEFT -->
+    <div class="ots-left">
+      <div class="params-card">
+        <div class="params-card-hdr">Protocol parameters</div>
+        <table class="params-table">
+          <tr><td>N_BYTES</td><td>16</td></tr>
+          <tr><td>W</td><td>8</td></tr>
+          <tr><td>CHAIN_LEN</td><td>256</td></tr>
+          <tr><td>A (msg digits)</td><td>16</td></tr>
+          <tr><td>C (csum digits)</td><td>2</td></tr>
+          <tr><td>A+C (chains)</td><td>18</td></tr>
+          <tr><td>keyId</td><td id="keyid-val">—</td></tr>
+        </table>
       </div>
-
-      <div class="sig-box">
-        <label>PK = hash_lms([0, keyId], *tips)</label>
-        <div class="sig-hex pk" id="pk-display">—</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <label style="font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)">Message</label>
+        <input class="inp" id="msg-inp" value="hello distributed world" style="font-family:'JetBrains Mono',monospace;font-size:.78rem;background:var(--s2);border:1px solid var(--line);border-radius:var(--r6);padding:9px 12px;color:var(--ink);outline:none;transition:.15s;" onfocus="this.style.borderColor='var(--c)'" onblur="this.style.borderColor='var(--line)'">
       </div>
-      <div class="sig-box">
-        <label>Signature Z[0..17] (first 3 shown)</label>
-        <div class="sig-hex" id="sig-display">—</div>
+      <div class="ots-btn-col">
+        <button class="btn c" id="kg-btn" onclick="startKeygen()">winternitz_keygen()</button>
+        <button class="btn g" id="sg-btn" onclick="startSign()" disabled>winternitz_sign()</button>
+        <button class="btn d" id="vf-btn" onclick="startVerify()" disabled>winternitz_verify()</button>
+        <button class="btn r" onclick="resetOTS()" style="margin-top:2px;">↺ reset</button>
       </div>
-      <div class="sig-box">
-        <label>Verify result</label>
-        <div id="verify-display" style="font-size:.78rem;color:var(--dim);">Run keygen → sign → verify.</div>
+      <div class="info-box">
+        <div class="info-box-label">PK = hash_lms([0, keyId], *tips)</div>
+        <div class="info-hex c" id="pk-out">—</div>
+      </div>
+      <div class="info-box">
+        <div class="info-box-label">Signature Z[0..2] (of 18)</div>
+        <div class="info-hex g" id="sig-out">—</div>
+      </div>
+      <div class="info-box">
+        <div class="info-box-label">Verification</div>
+        <div id="vf-out" style="font-size:.75rem;color:var(--mid);">Run keygen → sign → verify.</div>
       </div>
     </div>
 
@@ -375,27 +528,29 @@ footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index
           <div class="term-dot" style="background:#FF5F57"></div>
           <div class="term-dot" style="background:#FFBD2E"></div>
           <div class="term-dot" style="background:#28CA41"></div>
-          <span style="font-size:.65rem;color:var(--dim);margin-left:8px;">distributed_signing.py — Web Crypto API</span>
+          <span class="term-fname">distributed_signing.py — crypto.subtle.digest('SHA-256', …)</span>
         </div>
         <div class="term-body" id="term-out">
-          <div class="tl"><span class="ts">$</span><span class="tm">python3 distributed_signing.py</span></div>
-          <div class="tl"><span class="ts"> </span><span class="tm dim"># hash_lms([2,i,j,keyId], val) = SHA-256(tweak_be32 || val)[:16]</span></div>
-          <div class="tl"><span class="ts"> </span><span class="tm dim"># Press winternitz_keygen() to begin.</span></div>
+          <div class="tl"><span class="tl-ts">---</span><span class="tl-m dim2"># hash_lms(tweak, *data) = SHA-256(tweak_be32 || data)[:N_BYTES]</span></div>
+          <div class="tl"><span class="tl-ts">---</span><span class="tl-m dim2"># All values are computed live — different on every run.</span></div>
+          <div class="tl"><span class="tl-ts">---</span><span class="tl-m dim2"># Click winternitz_keygen() to begin.</span></div>
         </div>
       </div>
 
-      <!-- digit decomposition table -->
-      <div id="digit-wrap" style="display:none;margin-top:14px;">
-        <div class="card">
-          <div class="card-title"><div class="dot" style="background:var(--y)"></div>Digit decomposition — h = hash_lms([1, keyId], R, M)</div>
-          <div style="font-size:.65rem;color:var(--dim);margin-bottom:10px;">W=8: each byte of h is one digit b_i ∈ [0,255]. Checksum csum = A×(CHAIN_LEN-1) − Σb_i prevents digit-increment forgeries.</div>
-          <div class="digit-table-wrap">
-            <table class="digit-table" id="digit-table">
-              <thead><tr><th>i</th><th>b_all[i]</th><th>sign@</th><th>verify steps</th><th>Z[i] (first 4B)</th></tr></thead>
-              <tbody id="digit-tbody"></tbody>
+      <!-- digit decomposition -->
+      <div id="dig-wrap" class="digit-wrap" style="display:none;">
+        <div class="digit-card">
+          <div class="digit-card-hdr">
+            <span class="digit-card-hdr-l">Digit decomposition — b_all[0..17]</span>
+            <span class="digit-card-hdr-r">W=8: each byte of h is one digit ∈ [0, 255]</span>
+          </div>
+          <div class="digit-scroll">
+            <table class="dt">
+              <thead><tr><th>i</th><th>role</th><th>b_all[i]</th><th>chain position</th><th>verify steps remaining</th><th>Z[i] prefix</th></tr></thead>
+              <tbody id="dt-body"></tbody>
             </table>
           </div>
-          <div style="font-size:.65rem;color:var(--dim);margin-top:10px;" id="csum-line"></div>
+          <div class="csum-note" id="csum-note"></div>
         </div>
       </div>
     </div>
@@ -403,154 +558,184 @@ footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index
 </div>
 </section>
 
-<!-- ═══════════ THRESHOLD ═══════════ -->
-<section id="threshold" style="background:var(--s1);border-top:1px solid var(--line);border-bottom:1px solid var(--line);">
+<!-- ══════════ THRESHOLD ══════════ -->
+<section id="threshold" class="sec-alt">
 <div class="w">
-  <div class="slabel reveal">
-    <span class="slabel-num">02</span>
-    <span class="slabel-text r">KK_SETUPCONTRIBUTION — TWO-ROUND PROTOCOL</span>
-    <div class="slabel-line"></div>
+  <div class="sl rv">
+    <span class="sl-n">02</span>
+    <span class="sl-t r">KK_SETUPCONTRIBUTION — TWO-ROUND PRF PROTOCOL</span>
+    <div class="sl-line"></div>
   </div>
-  <h2 class="reveal">Click a trustee to compromise it.</h2>
-  <p class="sdesc reveal">
-    Round 1: each trustee t computes <code>Rt = PRF_R(seed_t, keyId)</code> and <code>CHKt = PRF_Chk(seed_t, keyId)</code>.
-    Aggregator sets <code>CRV.R = XOR(R, R₁, R₂)</code>.
-    With k=2, one compromised trustee's Rt value reveals nothing about the aggregate — it is masked by the other trustee's contribution.
+  <h2 class="rv">Click a trustee to compromise it.</h2>
+  <p class="sdesc rv">
+    Round 1: trustee t computes <code>Rt = PRF_R(seed_t, keyId)</code>, <code>CHKt = PRF_Chk(seed_t, keyId)</code>.
+    Aggregator: <code>CRV.R = XOR(R_base, R₀, R₁, …)</code>.
+    A coalition of k−1 trustees observes a set of PRF outputs that are jointly uniform — the masked key is indistinguishable from random.
+    With fewer than k active trustees, <code>KK_Aggregator_Sign()</code> aborts.
   </p>
 
-  <div class="card reveal" style="max-width:860px;">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
-      <div class="card-title" style="margin-bottom:0"><div class="dot" style="background:var(--r)"></div>Threshold k =</div>
-      <input type="range" id="k-slider" min="1" max="2" value="2" oninput="onKSlider()" style="accent-color:var(--c);width:120px;cursor:pointer;">
+  <div class="card rv" style="background:var(--s2);border:1px solid var(--line);border-radius:var(--r8);padding:24px;max-width:880px;">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;flex-wrap:wrap;">
+      <span style="font-size:.65rem;color:var(--dim);">Threshold k =</span>
+      <input type="range" id="k-rng" min="1" max="2" value="2" oninput="onKChange()" style="accent-color:var(--c);width:100px;cursor:pointer;">
       <span id="k-val" style="font-size:.9rem;font-weight:700;color:var(--c);">2</span>
-      <span style="font-size:.68rem;color:var(--dim);">of 2 trustees required</span>
-      <button class="btn ghost" style="margin-left:auto;" onclick="resetThreshold()">↺ reset</button>
+      <span style="font-size:.65rem;color:var(--dim);">of 2 trustees required</span>
+      <button class="btn d" style="margin-left:auto;" onclick="resetThresh()">↺ reset</button>
     </div>
 
-    <div class="thresh-stage" id="thresh-stage">
-      <!-- rendered by JS -->
-    </div>
+    <div class="thresh-stage" id="ts"></div>
 
-    <div class="thresh-result">
+    <div class="thresh-bottom">
       <div>
-        <div class="thresh-verdict" id="thresh-verdict">SECURE — both trustees active</div>
-        <div class="thresh-crv" id="thresh-crv" style="margin-top:6px;"></div>
+        <div class="verdict" id="tv">SECURE — both trustees active</div>
+        <div class="crv-detail" id="td" style="margin-top:6px;"></div>
       </div>
-      <button class="btn c" id="thresh-sign-btn" onclick="runThreshSign()">KK_Aggregator_Sign()</button>
+      <button class="btn c" id="ts-btn" onclick="runThresh()">KK_Aggregator_Sign()</button>
     </div>
   </div>
 </div>
 </section>
 
-<!-- ═══════════ MERKLE ═══════════ -->
+<!-- ══════════ MERKLE ══════════ -->
 <section id="merkle">
 <div class="w">
-  <div class="slabel reveal">
-    <span class="slabel-num">03</span>
-    <span class="slabel-text g">MT_CONSTRUCT — MERKLE AUTHENTICATION</span>
-    <div class="slabel-line"></div>
+  <div class="sl rv">
+    <span class="sl-n">03</span>
+    <span class="sl-t g">MT_CONSTRUCT — MERKLE AUTHENTICATION TREE</span>
+    <div class="sl-line"></div>
   </div>
-  <h2 class="reveal">D=4 tree with real SHA-256 at every node.</h2>
-  <p class="sdesc reveal">
-    Leaf i = Winternitz PK for that slot. Internal nodes: <code>hash_lms([1, level, idx], left, right)</code>. Click any leaf after building to highlight its authentication path — the sibling nodes a verifier needs to reconstruct the root.
+  <h2 class="rv">D=4 leaves. Real SHA-256 at every node.</h2>
+  <p class="sdesc rv">
+    Leaf i is the Winternitz OTS public key for slot i.
+    Internal node: <code>hash_lms([3, level, pos], left, right)</code>.
+    MT_MakePath(i) returns the siblings along the root path — two nodes for height-2 tree.
+    Verifier recomputes: <code>h₀₁ = hash_lms([3,0,0], leaf[0], leaf[1])</code>, <code>root = hash_lms([3,1,0], h₀₁, h₂₃)</code>. Click a leaf after building to highlight its authentication path.
   </p>
 
-  <div class="merkle-wrap reveal">
+  <div class="merkle-card rv">
     <div class="merkle-toolbar">
       <button class="btn c" onclick="buildMerkle()">MT_Construct(D=4)</button>
-      <button class="btn ghost" onclick="resetMerkle()">↺ reset</button>
-      <span style="font-size:.65rem;color:var(--dim);margin-left:4px;" id="merkle-status">Build the tree to see real hashes.</span>
+      <button class="btn d" onclick="resetMerkle()">↺ reset</button>
+      <span style="font-size:.65rem;color:var(--mid);margin-left:4px;" id="ms">Build to see real hashes.</span>
     </div>
     <svg id="msv" viewBox="0 0 820 320"></svg>
-    <div class="merkle-footer">
-      <div class="mleg"><div class="mleg-dot" style="background:var(--y)"></div><span style="font-size:.62rem;color:var(--dim)">OTS public key (leaf)</span></div>
-      <div class="mleg"><div class="mleg-dot" style="background:var(--c)"></div><span style="font-size:.62rem;color:var(--dim)">Internal hash node</span></div>
-      <div class="mleg"><div class="mleg-dot" style="background:var(--p)"></div><span style="font-size:.62rem;color:var(--dim)">Merkle root</span></div>
-      <div class="mleg"><div class="mleg-dot" style="background:var(--g)"></div><span style="font-size:.62rem;color:var(--dim)">Authentication path</span></div>
-      <span style="margin-left:auto;font-size:.62rem;color:var(--dim);" id="merkle-root-display"></span>
+    <div class="merkle-foot">
+      <div class="mleg"><div class="mleg-dot" style="background:var(--y)"></div>OTS pk (leaf)</div>
+      <div class="mleg"><div class="mleg-dot" style="background:var(--c)"></div>Internal hash</div>
+      <div class="mleg"><div class="mleg-dot" style="background:var(--p)"></div>Root</div>
+      <div class="mleg"><div class="mleg-dot" style="background:var(--g)"></div>Auth path</div>
+      <div class="merkle-root" id="mr-display"></div>
     </div>
   </div>
 </div>
 </section>
 
-<!-- ═══════════ PERFORMANCE ═══════════ -->
-<section id="perf" style="background:var(--s1);border-top:1px solid var(--line);border-bottom:1px solid var(--line);">
+<!-- ══════════ PERF ══════════ -->
+<section id="perf" class="sec-alt">
 <div class="w">
-  <div class="slabel reveal">
-    <span class="slabel-num">04</span>
-    <span class="slabel-text y">BENCHMARK_RESULTS.CSV — SHA-256, FAST MODE</span>
-    <div class="slabel-line"></div>
+  <div class="sl rv">
+    <span class="sl-n">04</span>
+    <span class="sl-t y">BENCHMARK_RESULTS.CSV — SHA-256, FAST MODE</span>
+    <div class="sl-line"></div>
   </div>
-  <h2 class="reveal">Measured timing. Python, Apple M-series.</h2>
-  <p class="sdesc reveal">AggregatorVerify is O(OTS verify + log D) — same cost as non-distributed HBS. Sign cost scales with k, not D.</p>
-
-  <div class="bench-grid reveal" id="bench-grid">
-    <div class="card">
-      <div class="card-title"><div class="dot" style="background:var(--c)"></div>Winternitz OTS</div>
-      <div class="brow"><div class="brow-lbl">Gen<small>single key</small></div><div class="btrack"><div class="bfill y" data-w="56"></div></div><div class="bval y">3.43 ms</div></div>
-      <div class="brow"><div class="brow-lbl">Sign<small>table lookup</small></div><div class="btrack"><div class="bfill g" data-w="1"></div></div><div class="bval g">0.003 ms</div></div>
-      <div class="brow"><div class="brow-lbl">Verify<small>chain recompute</small></div><div class="btrack"><div class="bfill c" data-w="23"></div></div><div class="bval c">1.42 ms</div></div>
-      <div class="bnote">Sign = O(A+C) lookups. Verify = O((A+C)×CHAIN_LEN) hashes.</div>
-    </div>
-    <div class="card">
-      <div class="card-title"><div class="dot" style="background:var(--g)"></div>Stateful HBS (non-distributed baseline)</div>
-      <div class="brow"><div class="brow-lbl">StatefulSign<small>D=128 leaves</small></div><div class="btrack"><div class="bfill g" data-w="7"></div></div><div class="bval g">0.44 ms</div></div>
-      <div class="brow"><div class="brow-lbl">StatefulVerify<small>D=128</small></div><div class="btrack"><div class="bfill c" data-w="27"></div></div><div class="bval c">1.67 ms</div></div>
-      <div class="bnote">Sign adds O(log D) Merkle path over OTS sign.</div>
-    </div>
-    <div class="card">
-      <div class="card-title"><div class="dot" style="background:var(--r)"></div>AggregatorSign — two-round PRF</div>
-      <div class="brow"><div class="brow-lbl">k=2, D=8</div><div class="btrack"><div class="bfill c" data-w="59"></div></div><div class="bval c">7.28 ms</div></div>
-      <div class="brow"><div class="brow-lbl">k=2, D=16</div><div class="btrack"><div class="bfill c" data-w="59"></div></div><div class="bval c">7.37 ms</div></div>
-      <div class="brow"><div class="brow-lbl">k=3, D=8</div><div class="btrack"><div class="bfill y" data-w="89"></div></div><div class="bval y">11.02 ms</div></div>
-      <div class="brow"><div class="brow-lbl">k=3, D=16</div><div class="btrack"><div class="bfill y" data-w="90"></div></div><div class="bval y">11.10 ms</div></div>
-      <div class="bnote">Cost scales with k (PRF rounds), not D (Merkle depth).</div>
-    </div>
-    <div class="card">
-      <div class="card-title"><div class="dot" style="background:var(--g)"></div>AggregatorVerify</div>
-      <div class="brow"><div class="brow-lbl">k=2, D=8</div><div class="btrack"><div class="bfill g" data-w="25"></div></div><div class="bval g">1.53 ms</div></div>
-      <div class="brow"><div class="brow-lbl">k=2, D=32</div><div class="btrack"><div class="bfill g" data-w="27"></div></div><div class="bval g">1.66 ms</div></div>
-      <div class="brow"><div class="brow-lbl">k=3, D=8</div><div class="btrack"><div class="bfill g" data-w="26"></div></div><div class="bval g">1.63 ms</div></div>
-      <div class="brow"><div class="brow-lbl">k=3, D=32</div><div class="btrack"><div class="bfill g" data-w="28"></div></div><div class="bval g">1.74 ms</div></div>
-      <div class="bnote">Verification is independent of k — identical to stateful HBS verify.</div>
-    </div>
-  </div>
-</div>
-</section>
-
-<!-- ═══════════ XOR BENCHMARK ═══════════ -->
-<section id="xor">
-<div class="w">
-  <div class="slabel reveal">
-    <span class="slabel-num">05</span>
-    <span class="slabel-text c">_XOR_MANY() — IN-BROWSER MEASUREMENT</span>
-    <div class="slabel-line"></div>
-  </div>
-  <h2 class="reveal">Byte loop vs Uint32Array XOR, measured here.</h2>
-  <p class="sdesc reveal">
-    Python's <code>int.from_bytes + ^</code> is 5.9× faster than a byte loop over 20,000 runs. The equivalent in JS uses a Uint32Array view (4 words × 32-bit XOR instead of 16 byte XORs). Click to measure the actual speedup on your machine.
+  <h2 class="rv">Measured on Apple M-series. Python, FAST mode.</h2>
+  <p class="sdesc rv">
+    AggregatorVerify() is O(OTS verify + log D) regardless of k — verifier cost is independent of the number of signing trustees.
+    AggregatorSign() scales with k (PRF round-trips), not with D (Merkle tree depth).
   </p>
 
-  <div class="xor-wrap reveal">
-    <div class="xor-result" id="xor-result">
-      <div class="card-title"><div class="dot" style="background:var(--g)"></div>_xor_many(10 × 16-byte values) — 5000 iterations</div>
-      <div class="xor-bar-row">
-        <div class="xor-bar-label">Byte loop &nbsp;<span id="xb-val" style="color:var(--r);font-weight:700">—</span></div>
-        <div class="xor-track"><div class="xor-fill byte" id="xb-fill"></div></div>
+  <div class="bench-grid rv">
+    <div class="bc">
+      <div class="bc-hdr"><div class="bc-dot" style="background:var(--c)"></div>Winternitz OTS (single key)</div>
+      <div class="br"><div class="br-l">Gen<small>18 chains × 255 steps</small></div><div class="bt"><div class="bf y" data-w="55"></div></div><div class="bv y">3.43 ms</div></div>
+      <div class="br"><div class="br-l">Sign<small>chain lookup at b_all[i]</small></div><div class="bt"><div class="bf g" data-w="1"></div></div><div class="bv g">0.003 ms</div></div>
+      <div class="br"><div class="br-l">Verify<small>hash forward, reconstruct PK</small></div><div class="bt"><div class="bf c" data-w="22"></div></div><div class="bv c">1.42 ms</div></div>
+      <div class="bn">Sign = O(A+C) lookups. Verify = O((A+C)×CHAIN_LEN) hashes.</div>
+    </div>
+    <div class="bc">
+      <div class="bc-hdr"><div class="bc-dot" style="background:var(--g)"></div>Stateful HBS (non-distributed baseline)</div>
+      <div class="br"><div class="br-l">StatefulSign<small>D=128 leaves</small></div><div class="bt"><div class="bf g" data-w="7"></div></div><div class="bv g">0.44 ms</div></div>
+      <div class="br"><div class="br-l">StatefulVerify<small>D=128</small></div><div class="bt"><div class="bf c" data-w="26"></div></div><div class="bv c">1.67 ms</div></div>
+      <div class="bn">Sign adds O(log D) Merkle path lookup over OTS sign.</div>
+    </div>
+    <div class="bc">
+      <div class="bc-hdr"><div class="bc-dot" style="background:var(--r)"></div>AggregatorSign — distributed</div>
+      <div class="br"><div class="br-l">k=2, D=8</div><div class="bt"><div class="bf c" data-w="59"></div></div><div class="bv c">7.28 ms</div></div>
+      <div class="br"><div class="br-l">k=2, D=16</div><div class="bt"><div class="bf c" data-w="60"></div></div><div class="bv c">7.37 ms</div></div>
+      <div class="br"><div class="br-l">k=3, D=8</div><div class="bt"><div class="bf y" data-w="89"></div></div><div class="bv y">11.02 ms</div></div>
+      <div class="br"><div class="br-l">k=3, D=16</div><div class="bt"><div class="bf y" data-w="90"></div></div><div class="bv y">11.10 ms</div></div>
+      <div class="bn">Cost is O(k×(A+C)×CHAIN_LEN + k log D). Scales with k, not D.</div>
+    </div>
+    <div class="bc">
+      <div class="bc-hdr"><div class="bc-dot" style="background:var(--g)"></div>AggregatorVerify</div>
+      <div class="br"><div class="br-l">k=2, D=8</div><div class="bt"><div class="bf g" data-w="24"></div></div><div class="bv g">1.53 ms</div></div>
+      <div class="br"><div class="br-l">k=2, D=32</div><div class="bt"><div class="bf g" data-w="26"></div></div><div class="bv g">1.66 ms</div></div>
+      <div class="br"><div class="br-l">k=3, D=8</div><div class="bt"><div class="bf g" data-w="26"></div></div><div class="bv g">1.63 ms</div></div>
+      <div class="br"><div class="br-l">k=3, D=32</div><div class="bt"><div class="bf g" data-w="27"></div></div><div class="bv g">1.74 ms</div></div>
+      <div class="bn">Verify = O(OTS verify + log D). Independent of k — identical interface to standard HBS.</div>
+    </div>
+  </div>
+
+  <!-- complexity table -->
+  <div class="rv" style="margin-top:32px;">
+    <div style="font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:12px;">Asymptotic complexity — from complexity_comparison.csv</div>
+    <div class="cxtable-wrap">
+      <table class="cx">
+        <thead><tr><th>Operation</th><th>Context</th><th>Time complexity</th></tr></thead>
+        <tbody>
+          <tr><td>Gen</td><td>single OTS key</td><td>O(A × CHAIN_LEN)</td></tr>
+          <tr><td>Sign</td><td>single OTS key</td><td>O(A + C)</td></tr>
+          <tr><td>Verify</td><td>single OTS key</td><td>O((A+C) × CHAIN_LEN)</td></tr>
+          <tr class="divrow"><td>MT_Construct</td><td>D leaves</td><td>O(D)</td></tr>
+          <tr><td>MT_MakePath</td><td>D leaves</td><td>O(D + log D)</td></tr>
+          <tr><td>MT_Verify</td><td>D leaves</td><td>O(log D)</td></tr>
+          <tr class="divrow"><td>StatefulSign</td><td>D leaves</td><td>O(OTS sign + log D)</td></tr>
+          <tr class="divrow"><td>AggregatorSign</td><td>D leaves, k trustees</td><td>O(k × (A+C) × CHAIN_LEN + k log D)</td></tr>
+          <tr><td>AggregatorVerify</td><td>D leaves</td><td>O(OTS verify + log D)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ══════════ XOR ══════════ -->
+<section id="xor">
+<div class="w">
+  <div class="sl rv">
+    <span class="sl-n">05</span>
+    <span class="sl-t c">_XOR_MANY() — MEASURED ON YOUR MACHINE</span>
+    <div class="sl-line"></div>
+  </div>
+  <h2 class="rv">Byte loop vs Uint32Array. Measured live.</h2>
+  <p class="sdesc rv">
+    Python's <code>int.from_bytes(v,'big') ^ acc</code> is a single C-level operation — the interpreter dispatches once regardless of length.
+    A byte loop dispatches 16 times per 16-byte value.
+    JS equivalent: viewing <code>Uint8Array</code> as <code>Uint32Array</code> reduces 16 XOR iterations to 4 (one 32-bit word per iteration).
+    Click below to measure the actual speedup on this machine.
+  </p>
+
+  <div class="xor-grid rv">
+    <div class="xor-card">
+      <div style="font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);">_xor_many(10 × 16-byte inputs) — 5000 iterations</div>
+      <div class="xor-metric">
+        <div class="xor-metric-label"><span>Byte loop</span><span id="xbv" style="color:var(--r)">—</span></div>
+        <div class="xor-track"><div class="xor-bar b" id="xbf"></div></div>
       </div>
-      <div class="xor-bar-row">
-        <div class="xor-bar-label">Uint32 view &nbsp;<span id="xu-val" style="color:var(--g);font-weight:700">—</span></div>
-        <div class="xor-track"><div class="xor-fill u32" id="xu-fill"></div></div>
+      <div class="xor-metric">
+        <div class="xor-metric-label"><span>Uint32Array view</span><span id="xuv" style="color:var(--g)">—</span></div>
+        <div class="xor-track"><div class="xor-bar u" id="xuf"></div></div>
       </div>
-      <div style="margin-top:14px;">
-        <div class="xor-speedup" id="xor-speedup">—×</div>
-        <div class="xor-speedup" style="font-size:.65rem;color:var(--dim);font-weight:400;margin-top:4px;">speedup · <span id="xor-sub">run benchmark to measure</span></div>
+      <div>
+        <div class="xor-speedup" id="xspd">—×</div>
+        <div class="xor-speedup-label" id="xsub">Click to measure on this machine</div>
+        <div class="xor-speedup-sub">Python result: 5.9× · 20,000 runs · CPython overhead model</div>
       </div>
-      <button class="btn c" onclick="runXORBench()" id="xor-btn" style="margin-top:12px;">Run _xor_many() benchmark</button>
+      <button class="btn c" onclick="runXOR()" id="xbtn">Run _xor_many() benchmark</button>
     </div>
     <div class="code-block">
-      <div class="code-hdr">distributed_signing.py <span class="fn">· _xor_many()</span></div>
-<pre><span class="cm"># Optimised: ~6× faster in CPython</span>
+      <div class="code-hdr"><span>distributed_signing.py</span><span class="code-fn">· _xor_many()</span></div>
+<pre><span class="cm"># int XOR: one C-level op regardless of byte count</span>
 <span class="kw">def</span> <span class="fn">_xor_many</span>(values):
     <span class="kw">if not</span> values: <span class="kw">return</span> <span class="st">b""</span>
     n = len(values[<span class="nu">0</span>])
@@ -561,8 +746,8 @@ footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index
         acc ^= int.from_bytes(v, <span class="st">"big"</span>)
     <span class="kw">return</span> acc.to_bytes(n, <span class="st">"big"</span>)
 
-<span class="cm"># JS equivalent: Uint32Array view</span>
-<span class="cm"># const out = new Uint32Array(N_BYTES/4);</span>
+<span class="cm"># JS equivalent (Uint32Array view — same idea)</span>
+<span class="cm"># const out = new Uint32Array(N_BYTES / 4);</span>
 <span class="cm"># for (const a of inputs) {</span>
 <span class="cm">#   const v = new Uint32Array(a.buffer, a.byteOffset);</span>
 <span class="cm">#   for (let i = 0; i &lt; 4; i++) out[i] ^= v[i];</span>
@@ -572,71 +757,71 @@ footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index
 </div>
 </section>
 
-<!-- ═══════════ OPTIMISATIONS ═══════════ -->
-<section id="opts" style="background:var(--s1);border-top:1px solid var(--line);">
+<!-- ══════════ OPTS ══════════ -->
+<section id="opts" class="sec-alt">
 <div class="w">
-  <div class="slabel reveal">
-    <span class="slabel-num">06</span>
-    <span class="slabel-text y">THREE MEASURED OPTIMISATIONS</span>
-    <div class="slabel-line"></div>
+  <div class="sl rv">
+    <span class="sl-n">06</span>
+    <span class="sl-t y">THREE MEASURED OPTIMISATIONS</span>
+    <div class="sl-line"></div>
   </div>
-  <h2 class="reveal">Each one is benchmarked. None are theoretical.</h2>
-  <div class="opt-grid reveal">
-    <div class="ocard">
-      <div class="ocard-top">
-        <div class="ocard-tag c">01 · _xor_many()</div>
+  <h2 class="rv">Each one benchmarked. None theoretical.</h2>
+  <div class="opt-grid rv">
+    <div class="oc">
+      <div class="oc-top">
+        <div class="oc-tag c">01 · _xor_many()</div>
         <h3>Integer XOR fast path</h3>
-        <p><code style="font-size:.72rem;color:var(--c)">int.from_bytes + ^</code> replaces a 16-iteration byte loop. In CPython, integer XOR is a single C-level operation — 16 interpreter dispatch cycles become 1. Measured over 20,000 runs, 10 × 16-byte inputs.</p>
+        <p>Replaces a 16-iteration byte loop with <code style="font-size:.72rem;color:var(--c)">int.from_bytes + ^</code>. CPython's interpreter dispatches once per call regardless of integer width. Measured over 20,000 runs, 10 × 16-byte inputs per call.</p>
       </div>
-      <div class="ocard-cmp">
-        <div class="ocol"><div class="ocol-lbl">byte loop</div><div class="ocol-val before">6.59<span style="font-size:.7rem"> μs</span></div><div class="ocol-sub">for b in zip(*vals):<br>&nbsp;&nbsp;acc ^= b</div></div>
-        <div class="ocol"><div class="ocol-lbl">int XOR</div><div class="ocol-val after">1.10<span style="font-size:.7rem"> μs</span></div><div class="ocol-sub">int.from_bytes(v)<br>acc ^= …</div></div>
+      <div class="oc-cmp">
+        <div class="ocol"><div class="ocol-l">Byte loop</div><div class="ocol-v b">6.59<span style="font-size:.68rem"> μs</span></div><div class="ocol-s">for b in zip(*vals):<br>&nbsp;&nbsp;acc ^= b</div></div>
+        <div class="ocol"><div class="ocol-l">int XOR</div><div class="ocol-v a">1.10<span style="font-size:.68rem"> μs</span></div><div class="ocol-s">int.from_bytes(v, 'big')<br>acc ^= …</div></div>
       </div>
-      <div class="ocard-badge c">5.9× faster · 20,000 runs</div>
+      <div class="oc-badge c">5.9× faster · measured · 20,000 runs</div>
     </div>
-    <div class="ocard">
-      <div class="ocard-top">
-        <div class="ocard-tag g">02 · BLAKE2b backend</div>
+    <div class="oc">
+      <div class="oc-top">
+        <div class="oc-tag g">02 · BLAKE2b backend</div>
         <h3>Hash backend swap</h3>
-        <p>One-line change in <code style="font-size:.72rem;color:var(--c)">HASH_BACKEND</code>. BLAKE2b has lower per-call overhead on short 16-byte inputs. Same 128-bit security target — security argument is purely collision resistance, so the hash function is interchangeable.</p>
+        <p>Single-line change: <code style="font-size:.72rem;color:var(--c)">HASH_BACKEND = "blake2b"</code>. BLAKE2b has lower per-call overhead on 16-byte inputs. Security reduces to collision resistance — the hash function is a drop-in replacement.</p>
       </div>
-      <div class="ocard-cmp">
-        <div class="ocol"><div class="ocol-lbl">SHA-256 keygen</div><div class="ocol-val before">3.70<span style="font-size:.7rem"> ms</span></div><div class="ocol-sub">HASH_BACKEND=<br>"sha256"</div></div>
-        <div class="ocol"><div class="ocol-lbl">BLAKE2b keygen</div><div class="ocol-val after">3.14<span style="font-size:.7rem"> ms</span></div><div class="ocol-sub">HASH_BACKEND=<br>"blake2b"</div></div>
+      <div class="oc-cmp">
+        <div class="ocol"><div class="ocol-l">SHA-256 keygen</div><div class="ocol-v b">3.70<span style="font-size:.68rem"> ms</span></div><div class="ocol-s">HASH_BACKEND =<br>"sha256"</div></div>
+        <div class="ocol"><div class="ocol-l">BLAKE2b keygen</div><div class="ocol-v a">3.14<span style="font-size:.68rem"> ms</span></div><div class="ocol-s">HASH_BACKEND =<br>"blake2b"</div></div>
       </div>
-      <div class="ocard-badge g">1.18× faster keygen</div>
+      <div class="oc-badge g">1.18× faster keygen · same security proof</div>
     </div>
-    <div class="ocard">
-      <div class="ocard-top">
-        <div class="ocard-tag y">03 · GenLazy()</div>
+    <div class="oc">
+      <div class="oc-top">
+        <div class="oc-tag y">03 · GenLazy()</div>
         <h3>Lazy chain evaluation</h3>
-        <p><code style="font-size:.72rem;color:var(--c)">Gen()</code> stores all 18 × 256 chain elements (73 KB/key). <code style="font-size:.72rem;color:var(--c)">GenLazy()</code> stores only the 18 seeds and recomputes on demand. Same public key, same signature. 256× reduction in storage — relevant for constrained devices.</p>
+        <p><code style="font-size:.72rem;color:var(--c)">Gen()</code> precomputes all 18 × 256 chain elements at keygen. <code style="font-size:.72rem;color:var(--c)">GenLazy()</code> stores only the 18 seeds and walks the chain at sign time. Same PK, same signature format, same verification.</p>
       </div>
-      <div class="ocard-cmp">
-        <div class="ocol"><div class="ocol-lbl">Gen() — eager</div><div class="ocol-val before">73 <span style="font-size:.7rem">KB</span></div><div class="ocol-sub">18×256×16 B<br>Sign: 0.003 ms</div></div>
-        <div class="ocol"><div class="ocol-lbl">GenLazy() — lazy</div><div class="ocol-val after">288 <span style="font-size:.7rem">B</span></div><div class="ocol-sub">18×16 B seeds<br>Sign: 1.62 ms</div></div>
+      <div class="oc-cmp">
+        <div class="ocol"><div class="ocol-l">Gen() · eager</div><div class="ocol-v b">73 <span style="font-size:.68rem">KB</span></div><div class="ocol-s">18 × 256 × 16 B<br>Sign: 0.003 ms</div></div>
+        <div class="ocol"><div class="ocol-l">GenLazy() · lazy</div><div class="ocol-v a">288 <span style="font-size:.68rem">B</span></div><div class="ocol-s">18 × 16 B seeds<br>Sign: 1.62 ms</div></div>
       </div>
-      <div class="ocard-badge y">256× smaller private key</div>
+      <div class="oc-badge y">256× smaller private key storage</div>
     </div>
   </div>
 </div>
 </section>
 
-<!-- ═══════════ CODE ═══════════ -->
+<!-- ══════════ CODE ══════════ -->
 <section id="code">
 <div class="w">
-  <div class="slabel reveal">
-    <span class="slabel-num">07</span>
-    <span class="slabel-text c">SOURCE — KEY FUNCTIONS</span>
-    <div class="slabel-line"></div>
+  <div class="sl rv">
+    <span class="sl-n">07</span>
+    <span class="sl-t c">SOURCE — CRITICAL PATHS</span>
+    <div class="sl-line"></div>
   </div>
-  <h2 class="reveal">The critical paths.</h2>
-  <div class="reveal" style="display:grid;gap:14px;">
+  <h2 class="rv">The functions that matter.</h2>
+  <div class="rv" style="display:grid;gap:14px;">
     <div class="code-block">
-      <div class="code-hdr">hash.py <span class="fn">· hash_lms()</span> — domain-separated SHA-256</div>
+      <div class="code-hdr"><span>hash.py</span><span class="code-fn">· hash_lms() — domain-separated SHA-256</span></div>
 <pre><span class="kw">def</span> <span class="fn">hash_lms</span>(tweak, *data):
     h = hashlib.sha256()
-    <span class="kw">for</span> t <span class="kw">in</span> tweak:          <span class="cm"># encode each tweak element as 4-byte big-endian</span>
+    <span class="kw">for</span> t <span class="kw">in</span> tweak:          <span class="cm"># each int → 4-byte big-endian prefix</span>
         <span class="kw">if</span> isinstance(t, int):
             h.update(t.to_bytes(<span class="nu">4</span>, <span class="st">"big"</span>))
         <span class="kw">else</span>:
@@ -646,7 +831,7 @@ footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index
     <span class="kw">return</span> h.digest()</pre>
     </div>
     <div class="code-block">
-      <div class="code-hdr">distributed_signing.py <span class="fn">· KK_SetupContribution()</span> — trustee Round 1 + Round 2 seed</div>
+      <div class="code-hdr"><span>distributed_signing.py</span><span class="code-fn">· KK_SetupContribution() — each trustee runs this once during setup</span></div>
 <pre><span class="kw">def</span> <span class="fn">KK_SetupContribution</span>(seed, KeyID, R, path_lens, sk_shape):
     rows, cols = sk_shape
     <span class="kw">return</span> {
@@ -677,644 +862,478 @@ footer{border-top:1px solid var(--line);padding:28px 0;position:relative;z-index
 
 <script>
 'use strict';
-// ================================================================
-// CONSTANTS — match utils.py exactly
-// ================================================================
-const N_BYTES   = 16;
-const W         = 8;
-const A         = 16;   // N_BYTES (= N/W)
-const C         = 2;    // ceil(log2(A*(2^W-1))/W)
-const AC        = 18;   // A+C
-const CHAIN_LEN = 256;  // 2^W
+// ── Constants (match utils.py)
+const N_BYTES=16,W=8,A=16,C=2,AC=18,CHAIN_LEN=256;
+const T_PK=0,T_MSG=1,T_CHAIN=2,T_MT=3,T_PRF_R=30,T_PRF_CHK=31;
+let hashTotal=0;
 
-// PRF tweaks — match distributed_signing.py
-const T_OTS_PK    = 0;
-const T_OTS_MSG   = 1;
-const T_OTS_CHAIN = 2;
-const T_MT_INT    = 3;
-const T_PRF_R     = 30;
-const T_PRF_CHK   = 31;
-
-let hashOpsTotal = 0;
-
-// ================================================================
-// hash_lms — faithful reimplementation of hash.py
-// SHA-256(tweak[0]_be32 || tweak[1]_be32 || ... || data[0] || data[1] || ...)[:N_BYTES]
-// ================================================================
-async function hash_lms(tweak, ...data) {
-  let len = tweak.length * 4;
-  for (const d of data) len += d.length;
-  const buf = new Uint8Array(len);
-  const dv = new DataView(buf.buffer);
-  let off = 0;
-  for (const t of tweak) { dv.setUint32(off, t >>> 0, false); off += 4; }
-  for (const d of data)  { buf.set(d, off); off += d.length; }
-  const raw = await crypto.subtle.digest('SHA-256', buf);
-  hashOpsTotal++;
-  const el = document.getElementById('hops');
-  if (el) el.textContent = hashOpsTotal.toLocaleString();
-  return new Uint8Array(raw).slice(0, N_BYTES);
+// ── hash_lms — exact reimplementation of hash.py
+async function hash_lms(tweak,...data){
+  let n=tweak.length*4;
+  for(const d of data)n+=d.length;
+  const buf=new Uint8Array(n),dv=new DataView(buf.buffer);
+  let off=0;
+  for(const t of tweak){dv.setUint32(off,t>>>0,false);off+=4;}
+  for(const d of data){buf.set(d,off);off+=d.length;}
+  const raw=await crypto.subtle.digest('SHA-256',buf);
+  hashTotal++;
+  const el=document.getElementById('hops');
+  if(el)el.textContent=hashTotal.toLocaleString();
+  return new Uint8Array(raw).slice(0,N_BYTES);
 }
 
-// ================================================================
-// CHAIN
-// ================================================================
-async function chain_element(seed, i, steps, keyId) {
-  let val = new Uint8Array(seed);
-  for (let j = 1; j <= steps; j++) {
-    val = await hash_lms([T_OTS_CHAIN, i, j, keyId], val);
-  }
-  return val;
+// ── Chain
+async function chain_el(seed,i,steps,kid){
+  let v=new Uint8Array(seed);
+  for(let j=1;j<=steps;j++)v=await hash_lms([T_CHAIN,i,j,kid],v);
+  return v;
 }
 
-// ================================================================
-// WINTERNITZ KEYGEN
-// ================================================================
-async function winternitz_keygen(keyId, onChain) {
-  const seeds = Array.from({length: AC}, () => {
-    const s = new Uint8Array(N_BYTES); crypto.getRandomValues(s); return s;
-  });
-  const tips = await Promise.all(seeds.map((seed, i) =>
-    chain_element(seed, i, CHAIN_LEN - 1, keyId).then(tip => { onChain && onChain(i, tip); return tip; })
-  ));
-  const pk = await hash_lms([T_OTS_PK, keyId], ...tips);
-  return { pk, seeds, tips, keyId };
+// ── Keygen
+async function keygen(kid,onChain){
+  const seeds=Array.from({length:AC},()=>{const s=new Uint8Array(N_BYTES);crypto.getRandomValues(s);return s;});
+  const tips=await Promise.all(seeds.map((s,i)=>chain_el(s,i,CHAIN_LEN-1,kid).then(t=>{onChain&&onChain(i,t);return t;})));
+  const pk=await hash_lms([T_PK,kid],...tips);
+  return{pk,seeds,tips,kid};
 }
 
-// ================================================================
-// WINTERNITZ SIGN
-// ================================================================
-function digits_from_h(h) { return Array.from(h); }
-function csum_digits(d) {
-  const cs = A * (CHAIN_LEN - 1) - d.reduce((a,b) => a+b, 0);
-  const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, cs, false);
-  return { digits: Array.from(b), csum: cs };
-}
-async function winternitz_sign(msgBytes, R, keyId, seeds, onStep) {
-  const h = await hash_lms([T_OTS_MSG, keyId], R, msgBytes);
-  const dMsg = digits_from_h(h);
-  const {digits: dCs, csum} = csum_digits(dMsg);
-  const allDigits = [...dMsg, ...dCs];
-  const Z = await Promise.all(allDigits.map((d, i) =>
-    chain_element(seeds[i], i, d, keyId).then(z => { onStep && onStep(i, d, z); return z; })
-  ));
-  return { R, Z, h, dMsg, dCs, allDigits, csum };
+// ── Sign
+function digs(h){return Array.from(h);}
+function csum(d){const cs=A*(CHAIN_LEN-1)-d.reduce((a,b)=>a+b,0);const b=new Uint8Array(2);new DataView(b.buffer).setUint16(0,cs,false);return{digits:Array.from(b),cs};}
+async function sign(mb,R,kid,seeds,onStep){
+  const h=await hash_lms([T_MSG,kid],R,mb);
+  const dm=digs(h);const{digits:dc,cs}=csum(dm);
+  const all=[...dm,...dc];
+  const Z=await Promise.all(all.map((d,i)=>chain_el(seeds[i],i,d,kid).then(z=>{onStep&&onStep(i,d,z);return z;})));
+  return{R,Z,h,dm,dc,all,cs};
 }
 
-// ================================================================
-// WINTERNITZ VERIFY
-// ================================================================
-async function winternitz_verify(msgBytes, R, Z, keyId, onStep) {
-  const h = await hash_lms([T_OTS_MSG, keyId], R, msgBytes);
-  const dMsg = digits_from_h(h);
-  const {digits: dCs} = csum_digits(dMsg);
-  const allDigits = [...dMsg, ...dCs];
-  const Yp = await Promise.all(Z.map((zi, i) => {
-    const d = allDigits[i];
-    return (async () => {
-      let val = new Uint8Array(zi);
-      for (let j = d + 1; j < CHAIN_LEN; j++) val = await hash_lms([T_OTS_CHAIN, i, j, keyId], val);
-      onStep && onStep(i, CHAIN_LEN - 1 - d, val);
-      return val;
-    })();
+// ── Verify
+async function verify(mb,R,Z,kid,onStep){
+  const h=await hash_lms([T_MSG,kid],R,mb);
+  const dm=digs(h);const{digits:dc}=csum(dm);
+  const all=[...dm,...dc];
+  const Yp=await Promise.all(Z.map((zi,i)=>{
+    const d=all[i];
+    return(async()=>{let v=new Uint8Array(zi);for(let j=d+1;j<CHAIN_LEN;j++)v=await hash_lms([T_CHAIN,i,j,kid],v);onStep&&onStep(i,CHAIN_LEN-1-d,v);return v;})();
   }));
-  return await hash_lms([T_OTS_PK, keyId], ...Yp);
+  return await hash_lms([T_PK,kid],...Yp);
 }
 
-// ================================================================
-// PRF FUNCTIONS
-// ================================================================
-async function PRF_R(seed, keyId) {
-  const ol = new Uint8Array(4); new DataView(ol.buffer).setUint32(0, N_BYTES, false);
-  return hash_lms([T_PRF_R, keyId], seed, ol);
-}
-async function PRF_Chk(seed, keyId) {
-  const ol = new Uint8Array(4); new DataView(ol.buffer).setUint32(0, N_BYTES, false);
-  return hash_lms([T_PRF_CHK, keyId], seed, ol);
-}
+// ── PRF
+async function prf_r(seed,kid){const ol=new Uint8Array(4);new DataView(ol.buffer).setUint32(0,N_BYTES,false);return hash_lms([T_PRF_R,kid],seed,ol);}
+async function prf_chk(seed,kid){const ol=new Uint8Array(4);new DataView(ol.buffer).setUint32(0,N_BYTES,false);return hash_lms([T_PRF_CHK,kid],seed,ol);}
 
-// ================================================================
-// HELPERS
-// ================================================================
-function toHex(b) { return Array.from(b).map(x => x.toString(16).padStart(2,'0')).join(''); }
-function fmtHex(b, sep=4) {
-  const h = toHex(b);
-  const g = []; for (let i=0;i<h.length;i+=sep*2) g.push(h.slice(i,i+sep*2));
-  return g.join(' ');
-}
-function randBytes(n) { const b=new Uint8Array(n); crypto.getRandomValues(b); return b; }
-function xorBytes(...arrs) {
-  const out = new Uint8Array(arrs[0].length);
-  for (const a of arrs) for (let i=0;i<out.length;i++) out[i]^=a[i];
-  return out;
-}
-const delay = ms => new Promise(r => setTimeout(r, ms));
+// ── Utils
+function hex(b){return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('');}
+function fhex(b,g=4){const h=hex(b);const r=[];for(let i=0;i<h.length;i+=g*2)r.push(h.slice(i,i+g*2));return r.join(' ');}
+function randB(n){const b=new Uint8Array(n);crypto.getRandomValues(b);return b;}
+function xorB(...a){const o=new Uint8Array(a[0].length);for(const x of a)for(let i=0;i<o.length;i++)o[i]^=x[i];return o;}
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
 
-// ================================================================
-// TERMINAL LOGGER
-// ================================================================
-let t0 = 0;
-function termLog(html) {
-  const el = document.getElementById('term-out');
-  const ts = t0 ? ((Date.now()-t0)/1000).toFixed(3)+'s' : '---';
-  const d = document.createElement('div');
-  d.className = 'tl';
-  d.innerHTML = `<span class="ts">[${ts}]</span><span class="tm">${html}</span>`;
-  el.appendChild(d);
-  el.scrollTop = el.scrollHeight;
+// ── Terminal
+let t0=0;
+function tlog(html){
+  const el=document.getElementById('term-out');
+  const ts=t0?((Date.now()-t0)/1000).toFixed(3)+'s':'---';
+  const d=document.createElement('div');
+  d.className='tl';d.innerHTML=`<span class="tl-ts">[${ts}]</span><span class="tl-m">${html}</span>`;
+  el.appendChild(d);el.scrollTop=el.scrollHeight;
 }
-function termClear() {
-  document.getElementById('term-out').innerHTML = '';
-  t0 = Date.now();
+function tclear(){document.getElementById('term-out').innerHTML='';t0=Date.now();}
+
+// ── Pipeline state
+function setPipe(step,state){
+  const el=document.getElementById(`ps-${step}`);
+  el.className='pipe-step'+(state?' '+state:'');
 }
 
-// ================================================================
-// OTS STATE
-// ================================================================
-let keyState = null;
-let sigState = null;
+// ── OTS state
+let keyState=null,sigState=null;
 
-async function startKeygen() {
-  const keyId = Math.floor(Math.random() * 0xFFFF);
-  document.getElementById('keyid-display').textContent = keyId;
-  document.getElementById('keygen-btn').disabled = true;
-  document.getElementById('sign-btn').disabled = true;
-  document.getElementById('verify-btn').disabled = true;
-  document.getElementById('pk-display').textContent = '—';
-  document.getElementById('sig-display').textContent = '—';
-  document.getElementById('verify-display').textContent = '—';
-  document.getElementById('verify-display').style.color = 'var(--dim)';
-  document.getElementById('digit-wrap').style.display = 'none';
-  keyState = null; sigState = null;
+async function startKeygen(){
+  const kid=0|(Math.random()*0xFFFF);
+  document.getElementById('keyid-val').textContent=kid;
+  document.getElementById('kg-btn').disabled=true;
+  document.getElementById('sg-btn').disabled=true;
+  document.getElementById('vf-btn').disabled=true;
+  document.getElementById('pk-out').textContent='—';
+  document.getElementById('sig-out').textContent='—';
+  document.getElementById('vf-out').textContent='Run keygen → sign → verify.';
+  document.getElementById('vf-out').style.color='var(--mid)';
+  document.getElementById('dig-wrap').style.display='none';
+  setPipe(0,'active');setPipe(1,'');setPipe(2,'');
+  keyState=null;sigState=null;
 
-  termClear();
-  termLog(`<span class="kw">winternitz_keygen</span>(keyId=<span class="num">${keyId}</span>)`);
-  termLog(`N_BYTES=<span class="num">${N_BYTES}</span>  W=<span class="num">${W}</span>  A=<span class="num">${A}</span>  C=<span class="num">${C}</span>  CHAIN_LEN=<span class="num">${CHAIN_LEN}</span>`);
-  termLog(`Generating <span class="num">18</span> random seeds via <span class="pk">crypto.getRandomValues()</span>...`);
-  await delay(30);
+  tclear();
+  tlog(`<span class="kw">winternitz_keygen</span>(keyId=<span class="num">${kid}</span>)`);
+  tlog(`N_BYTES=<span class="num">${N_BYTES}</span>  W=<span class="num">${W}</span>  A=<span class="num">${A}</span>  C=<span class="num">${C}</span>  CHAIN_LEN=<span class="num">${CHAIN_LEN}</span>`);
+  tlog(`Generating <span class="num">18</span> seeds — crypto.getRandomValues(16 B) each`);
+  await wait(20);
 
-  const completedMap = {};
-  const t_start = performance.now();
-
-  const result = await winternitz_keygen(keyId, (i, tip) => {
-    completedMap[i] = tip;
-    const done = Object.keys(completedMap).length;
-    termLog(`chain[<span class="num">${String(i).padStart(2,'0')}</span>] tip → <span class="val">${fmtHex(tip)}</span>  (<span class="dim">${done}/18</span>)`);
+  const chainDone={};
+  const t_=performance.now();
+  const res=await keygen(kid,(i,tip)=>{
+    chainDone[i]=1;
+    const done=Object.keys(chainDone).length;
+    tlog(`chain[<span class="num">${String(i).padStart(2,'0')}</span>]  tip → <span class="val">${fhex(tip)}</span>  <span class="dim2">(${done}/18 complete)</span>`);
   });
+  const ms=(performance.now()-t_).toFixed(1);
+  tlog(`<span class="num">4590</span> SHA-256 calls complete. Browser: <span class="num">${ms}ms</span>  Python: <span class="num">3.43ms</span>`);
+  tlog(`PK = <span class="kw">hash_lms</span>([<span class="num">0</span>, <span class="num">${kid}</span>], *tips)`);
+  tlog(`   = <span class="cyan">${fhex(res.pk)}</span>`);
 
-  const elapsed = (performance.now() - t_start).toFixed(1);
-  termLog(`All <span class="num">18</span> chains complete. <span class="num">4590</span> SHA-256 calls.`);
-  termLog(`PK = <span class="kw">hash_lms</span>([<span class="num">0</span>, <span class="num">${keyId}</span>], *tips)`);
-  termLog(`   = <span class="pk">${fmtHex(result.pk)}</span>`);
-  termLog(`Done. Browser: <span class="num">${elapsed}ms</span>  Python: <span class="num">3.43ms</span>  (<span class="dim">SHA-256 async overhead</span>)`);
-
-  document.getElementById('pk-display').textContent = fmtHex(result.pk);
-  keyState = result;
-  document.getElementById('keygen-btn').disabled = false;
-  document.getElementById('sign-btn').disabled = false;
+  document.getElementById('pk-out').textContent=fhex(res.pk);
+  keyState=res;
+  document.getElementById('kg-btn').disabled=false;
+  document.getElementById('sg-btn').disabled=false;
+  setPipe(0,'done');setPipe(1,'active');
 }
 
-async function startSign() {
-  if (!keyState) return;
-  const msg = document.getElementById('msg-inp').value || 'hello world';
-  const msgBytes = new TextEncoder().encode(msg);
-  const R = randBytes(N_BYTES);
+async function startSign(){
+  if(!keyState)return;
+  const msg=document.getElementById('msg-inp').value||'hello world';
+  const mb=new TextEncoder().encode(msg);
+  const R=randB(N_BYTES);
+  document.getElementById('sg-btn').disabled=true;
+  document.getElementById('vf-btn').disabled=true;
+  document.getElementById('sig-out').textContent='—';
+  document.getElementById('dig-wrap').style.display='none';
+  sigState=null;
+  setPipe(1,'active');setPipe(2,'');
 
-  document.getElementById('sign-btn').disabled = true;
-  document.getElementById('verify-btn').disabled = true;
-  document.getElementById('sig-display').textContent = '—';
-  document.getElementById('verify-display').textContent = '—';
-  document.getElementById('digit-wrap').style.display = 'none';
-  sigState = null;
+  tlog(`&nbsp;`);
+  tlog(`<span class="kw">winternitz_sign</span>(M=<span class="st">"${msg}"</span>, keyId=<span class="num">${keyState.kid}</span>)`);
+  tlog(`R = <span class="val">${fhex(R)}</span>  <span class="dim2">(fresh random nonce)</span>`);
+  tlog(`h = <span class="kw">hash_lms</span>([<span class="num">1</span>, <span class="num">${keyState.kid}</span>], R, M)`);
 
-  termLog(`&nbsp;`);
-  termLog(`<span class="kw">winternitz_sign</span>(M=<span class="st">"${msg}"</span>, keyId=<span class="num">${keyState.keyId}</span>)`);
-  termLog(`R = <span class="val">${fmtHex(R)}</span>  <span class="dim">(fresh random)</span>`);
-  termLog(`h = <span class="kw">hash_lms</span>([<span class="num">1</span>, <span class="num">${keyState.keyId}</span>], R, M)`);
+  const steps={};
+  const res=await sign(mb,R,keyState.kid,keyState.seeds,(i,d,z)=>{steps[i]={d,z};});
 
-  const stepMap = {};
-  const result = await winternitz_sign(msgBytes, R, keyState.keyId, keyState.seeds, (i, d, z) => {
-    stepMap[i] = {d, z};
-  });
+  tlog(`h = <span class="val">${fhex(res.h)}</span>`);
+  tlog(`b[0..15] = [${res.dm.map(d=>`<span class="num">${d}</span>`).join(' ')}]`);
+  tlog(`csum = <span class="num">${A}</span>×<span class="num">255</span>−Σb = <span class="num">${res.cs}</span>  →  digits [<span class="num">${res.dc[0]}</span>, <span class="num">${res.dc[1]}</span>]`);
+  tlog(`Z[0] = chain[0][<span class="num">${res.all[0]}</span>] = <span class="val">${fhex(res.Z[0])}</span>`);
+  tlog(`Z[1] = chain[1][<span class="num">${res.all[1]}</span>] = <span class="val">${fhex(res.Z[1])}</span>`);
+  tlog(`<span class="dim2">… 16 more chain elements</span>`);
+  tlog(`<span class="hi">✓ Signature: R (16 B) + Z×18 (288 B) = 304 B total</span>`);
 
-  termLog(`h = <span class="val">${fmtHex(result.h)}</span>`);
-  termLog(`Digits b[0..15] = [${result.dMsg.map(d=>`<span class="num">${d}</span>`).join(', ')}]`);
-  termLog(`Checksum = <span class="num">${A}</span>×<span class="num">255</span> − Σb = <span class="num">${result.csum}</span> → digits [<span class="num">${result.dCs[0]}</span>, <span class="num">${result.dCs[1]}</span>]`);
-  termLog(`Z[0] = chain[0][<span class="num">${result.allDigits[0]}</span>] = <span class="val">${fmtHex(result.Z[0])}</span>`);
-  termLog(`Z[1] = chain[1][<span class="num">${result.allDigits[1]}</span>] = <span class="val">${fmtHex(result.Z[1])}</span>`);
-  termLog(`... <span class="dim">(18 total)</span>`);
-  termLog(`<span class="hi">Signature ready. ${(AC * N_BYTES + N_BYTES).toLocaleString()} B (R + 18 chain elements).</span>`);
-
-  document.getElementById('sig-display').className = 'sig-hex live';
-  document.getElementById('sig-display').textContent =
-    `R:    ${fmtHex(R)}\nZ[0]: ${fmtHex(result.Z[0])}\nZ[1]: ${fmtHex(result.Z[1])}\nZ[2]: ${fmtHex(result.Z[2])}\n... (+15 more chain elements)`;
+  document.getElementById('sig-out').textContent=`R:    ${fhex(R)}\nZ[0]: ${fhex(res.Z[0])}\nZ[1]: ${fhex(res.Z[1])}\nZ[2]: ${fhex(res.Z[2])}\n… +15 more`;
 
   // Digit table
-  const tbody = document.getElementById('digit-tbody');
-  tbody.innerHTML = '';
-  result.allDigits.forEach((d, i) => {
-    const rem = CHAIN_LEN - 1 - d;
-    const isCsum = i >= A;
-    const bg = `hsl(${120 - d/255*120},70%,${isCsum?16:14}%)`;
-    const tr = document.createElement('tr');
-    if (isCsum) tr.className = 'csum';
-    tr.innerHTML = `<td class="pos">${i < A ? `b[${i}]` : `cs[${i-A}]`}</td><td class="digit" style="color:hsl(${120-d/255*120},80%,65%)">${d}</td><td class="chain" style="font-size:.58rem">sign@${d}</td><td class="chain" style="color:${rem>200?'var(--r)':rem>100?'var(--y)':'var(--g)'}">${rem}</td><td class="chain" style="color:var(--c);font-size:.58rem">${fmtHex(result.Z[i]).slice(0,9)}…</td>`;
-    tbody.appendChild(tr);
+  const tb=document.getElementById('dt-body');
+  tb.innerHTML='';
+  res.all.forEach((d,i)=>{
+    const rem=CHAIN_LEN-1-d;
+    const isCsum=i>=A;
+    const pct=d/255*100;
+    const remPct=rem/255*100;
+    const color=`hsl(${120-d/255*120},75%,58%)`;
+    const tr=document.createElement('tr');
+    if(isCsum)tr.className='cs-row';
+    tr.innerHTML=`
+      <td style="color:var(--mid)">${i}</td>
+      <td style="color:var(--dim);font-size:.6rem">${isCsum?`csum[${i-A}]`:`b[${i}]`}</td>
+      <td style="font-weight:700;color:${color}">${d}</td>
+      <td class="chain-bar-cell"><div class="chain-bar-wrap"><div class="chain-bar-fill" style="width:${pct}%;background:${color}"></div></div><div style="font-size:.55rem;color:var(--dim);margin-top:2px">sign@${d}</div></td>
+      <td><span style="font-size:.7rem;color:${rem>200?'var(--r)':rem>100?'var(--y)':'var(--g)';};font-weight:700">${rem}</span></td>
+      <td style="color:var(--c);font-size:.6rem">${hex(res.Z[i]).slice(0,8)}…</td>`;
+    tb.appendChild(tr);
   });
-  document.getElementById('csum-line').textContent =
-    `csum = ${A}×${CHAIN_LEN-1} − Σb = ${A*(CHAIN_LEN-1)} − ${A*(CHAIN_LEN-1)-result.csum} = ${result.csum}   ·   digits [${result.dCs[0]}, ${result.dCs[1]}]`;
-  document.getElementById('digit-wrap').style.display = 'block';
+  document.getElementById('csum-note').textContent=
+    `csum = ${A}×${CHAIN_LEN-1} − Σb[0..15] = ${A*(CHAIN_LEN-1)} − ${A*(CHAIN_LEN-1)-res.cs} = ${res.cs}   ·   checksum digits: [${res.dc[0]}, ${res.dc[1]}]   ·   prevents digit-increment forgeries`;
+  document.getElementById('dig-wrap').style.display='block';
 
-  sigState = result;
-  document.getElementById('sign-btn').disabled = false;
-  document.getElementById('verify-btn').disabled = false;
+  sigState=res;
+  document.getElementById('sg-btn').disabled=false;
+  document.getElementById('vf-btn').disabled=false;
+  setPipe(1,'done');setPipe(2,'active');
 }
 
-async function startVerify() {
-  if (!keyState || !sigState) return;
-  const msg = document.getElementById('msg-inp').value || 'hello world';
-  const msgBytes = new TextEncoder().encode(msg);
-  document.getElementById('verify-btn').disabled = true;
+async function startVerify(){
+  if(!keyState||!sigState)return;
+  const msg=document.getElementById('msg-inp').value||'hello world';
+  const mb=new TextEncoder().encode(msg);
+  document.getElementById('vf-btn').disabled=true;
+  setPipe(2,'active');
 
-  termLog(`&nbsp;`);
-  termLog(`<span class="kw">winternitz_verify</span>(M, R, Z, keyId=<span class="num">${keyState.keyId}</span>)`);
-  termLog(`Hashing forward from each Z[i]... (<span class="num">18</span> parallel chains)`);
+  tlog(`&nbsp;`);
+  tlog(`<span class="kw">winternitz_verify</span>(M, R, Z, keyId=<span class="num">${keyState.kid}</span>)`);
+  tlog(`Hashing forward from each Z[i] — <span class="num">18</span> parallel chains`);
 
-  const pkCheck = await winternitz_verify(msgBytes, sigState.R, sigState.Z, keyState.keyId, (i, rem, val) => {
-    if (i < 3) termLog(`Y′[<span class="num">${i}</span>]: +<span class="num">${rem}</span> steps → <span class="val">${fmtHex(val)}</span>`);
+  const pkc=await verify(mb,sigState.R,sigState.Z,keyState.kid,(i,rem,v)=>{
+    if(i<3)tlog(`Y′[<span class="num">${i}</span>]: +<span class="num">${rem}</span> steps → <span class="val">${fhex(v)}</span>`);
   });
 
-  const pkOrig = toHex(keyState.pk);
-  const pkRec  = toHex(pkCheck);
-  const valid  = pkOrig === pkRec;
+  const ok=hex(pkc)===hex(keyState.pk);
+  tlog(`hash_lms([<span class="num">0</span>,<span class="num">${keyState.kid}</span>],*Y′) = <span class="${ok?'hi':'err'}">${fhex(pkc)}</span>`);
+  tlog(`Stored PK                 = <span class="cyan">${fhex(keyState.pk)}</span>`);
+  tlog(ok
+    ?`<span class="hi bold">✓ VALID — reconstructed PK matches. Signature accepted.</span>`
+    :`<span class="err bold">✗ INVALID — PK mismatch. Signature rejected.</span>`);
 
-  termLog(`hash_lms([<span class="num">0</span>, <span class="num">${keyState.keyId}</span>], *Y′) = <span class="${valid?'hi':'err'}">${fmtHex(pkCheck)}</span>`);
-  termLog(`stored PK                    = <span class="pk">${fmtHex(keyState.pk)}</span>`);
-  termLog(valid
-    ? `<span class="hi">✓ VALID — reconstructed PK matches. Signature accepted.</span>`
-    : `<span class="err">✗ INVALID — PK mismatch. Signature rejected.</span>`);
-
-  const vd = document.getElementById('verify-display');
-  if (valid) {
-    vd.innerHTML = '<span style="color:var(--g);font-size:1rem;font-weight:700">✓ VALID</span><br><small style="color:var(--dim)">Reconstructed PK = hash_lms([0, keyId], *Y′) matches stored PK.</small>';
-  } else {
-    vd.innerHTML = '<span style="color:var(--r);font-size:1rem;font-weight:700">✗ INVALID</span>';
-  }
-  document.getElementById('verify-btn').disabled = false;
+  const vo=document.getElementById('vf-out');
+  vo.innerHTML=ok
+    ?'<span style="color:var(--g);font-size:1rem;font-weight:700">✓ VALID</span><br><small style="font-size:.65rem;color:var(--mid)">hash_lms([0, keyId], *Y′) = stored PK. Chain tips reconstructed correctly.</small>'
+    :'<span style="color:var(--r);font-size:1rem;font-weight:700">✗ INVALID</span>';
+  document.getElementById('vf-btn').disabled=false;
+  setPipe(2,'done');
 }
 
-function resetOTS() {
-  keyState = null; sigState = null;
-  document.getElementById('pk-display').textContent = '—';
-  document.getElementById('sig-display').className = 'sig-hex';
-  document.getElementById('sig-display').textContent = '—';
-  document.getElementById('verify-display').textContent = 'Run keygen → sign → verify.';
-  document.getElementById('verify-display').style.color = 'var(--dim)';
-  document.getElementById('sign-btn').disabled = true;
-  document.getElementById('verify-btn').disabled = true;
-  document.getElementById('digit-wrap').style.display = 'none';
-  document.getElementById('keyid-display').textContent = '0';
-  document.getElementById('term-out').innerHTML =
-    '<div class="tl"><span class="ts">$</span><span class="tm">Reset. Ready.</span></div>';
+function resetOTS(){
+  keyState=null;sigState=null;
+  ['pk-out','sig-out'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('pk-out').textContent='—';
+  document.getElementById('vf-out').textContent='Run keygen → sign → verify.';
+  document.getElementById('vf-out').style.color='var(--mid)';
+  document.getElementById('sg-btn').disabled=true;
+  document.getElementById('vf-btn').disabled=true;
+  document.getElementById('dig-wrap').style.display='none';
+  document.getElementById('keyid-val').textContent='—';
+  setPipe(0,'active');setPipe(1,'');setPipe(2,'');
+  document.getElementById('term-out').innerHTML='<div class="tl"><span class="tl-ts">---</span><span class="tl-m dim2">Reset. Ready.</span></div>';
 }
 
-// ================================================================
-// THRESHOLD
-// ================================================================
-let tTrustees = [
-  {id:0,label:'Trustee 0',state:'active',seed:null,prf_r:null,prf_chk:null},
-  {id:1,label:'Trustee 1',state:'active',seed:null,prf_r:null,prf_chk:null},
+function scrollToOTS(){document.getElementById('ots').scrollIntoView({behavior:'smooth'});setTimeout(startKeygen,400);}
+
+// ── Threshold
+let tData=[
+  {id:0,label:'Trustee 0',state:'active',seed:null,pr:null,pc:null},
+  {id:1,label:'Trustee 1',state:'active',seed:null,pr:null,pc:null},
 ];
-let kThresh = 2;
+let kT=2;
 
-function onKSlider() {
-  kThresh = parseInt(document.getElementById('k-slider').value);
-  document.getElementById('k-val').textContent = kThresh;
-  renderThreshold();
-}
+function onKChange(){kT=+document.getElementById('k-rng').value;document.getElementById('k-val').textContent=kT;renderThresh();}
 
-function renderThreshold() {
-  const stage = document.getElementById('thresh-stage');
-  const active = tTrustees.filter(t=>t.state==='active').length;
-  const canSign = active >= kThresh;
-  stage.innerHTML = '';
+function renderThresh(){
+  const s=document.getElementById('ts');
+  const active=tData.filter(t=>t.state==='active').length;
+  const can=active>=kT;
+  s.innerHTML='';
 
-  tTrustees.forEach((t, idx) => {
-    const box = document.createElement('div');
-    box.className = `trustee-box ${t.state}`;
-    box.onclick = () => { if(t.state!=='inactive'){ t.state = t.state==='active'?'compromised':'active'; t.prf_r=null; t.prf_chk=null; renderThreshold(); } };
-    const prfLabel = t.prf_r
-      ? `PRF_R = <span class="computed">${fmtHex(t.prf_r).slice(0,9)}…</span>`
-      : (t.state==='compromised' ? `<span class="missing">seed compromised</span>` : `PRF_R: <em>not computed</em>`);
-    box.innerHTML = `
-      <div class="tb-label ${t.state}">${t.label}${t.state==='compromised'?' ✗ compromised':''}</div>
-      <div class="tb-prf">${prfLabel}</div>
-      <div style="font-size:.55rem;color:var(--ghost)">seed: ${t.seed ? toHex(t.seed).slice(0,12)+'…' : 'none'}</div>`;
-    stage.appendChild(box);
+  tData.forEach((t,i)=>{
+    const box=document.createElement('div');
+    box.className=`t-box ${t.state}`;
+    box.onclick=()=>{if(t.state!=='inactive'){t.state=t.state==='active'?'compromised':'active';t.pr=null;t.pc=null;renderThresh();}};
+    const prfLine=t.pr
+      ?`PRF_R = <span class="ok">${hex(t.pr).slice(0,12)}…</span><br>PRF_Chk = <span class="ok">${hex(t.pc).slice(0,12)}…</span>`
+      :(t.state==='compromised'?`<span class="fail">seed compromised — no contribution</span>`:`PRF_R, PRF_Chk: <em>not computed</em>`);
+    box.innerHTML=`<div class="t-label ${t.state==='active'?'a':t.state==='compromised'?'c':'i'}">${t.label}${t.state==='compromised'?' ✗':''}</div><div class="t-prf">${prfLine}</div><div class="t-seed">seed: ${t.seed?hex(t.seed).slice(0,16)+'…':'—'}</div>`;
+    s.appendChild(box);
 
-    if (idx < tTrustees.length - 1) {
-      const arr = document.createElement('div');
-      arr.className = 'flow-arrow';
-      arr.innerHTML = `<div class="fa-label">${t.state==='active'?'Rt, CHKt →':'blocked'}</div><div class="fa-line ${t.state==='active'?'active':''}"></div><div class="fa-tip ${t.state==='active'?'active':''}">▶</div>`;
-
-      const agg = document.createElement('div');
-      agg.className = 'agg-box';
-      agg.innerHTML = `<div class="agg-ring" style="box-shadow:0 0 20px rgba(168,85,247,${canSign?.3:.08})">⚡</div><div class="agg-label">Aggregator</div><div class="agg-xor">CRV.R = XOR(R, R₀, R₁)</div>`;
-      stage.appendChild(arr);
-      stage.appendChild(agg);
-
-      const arr2 = document.createElement('div');
-      arr2.className = 'flow-arrow';
-      arr2.innerHTML = `<div class="fa-label">${tTrustees[idx+1].state==='active'?'Rt, CHKt →':'blocked'}</div><div class="fa-line ${tTrustees[idx+1].state==='active'?'active':''}"></div><div class="fa-tip ${tTrustees[idx+1].state==='active'?'active':''}">▶</div>`;
-      stage.appendChild(arr2);
+    if(i<tData.length-1){
+      const fl=document.createElement('div');
+      fl.className='flow-col';
+      fl.innerHTML=`<div class="flow-note">Rt, CHKt</div><div class="flow-line${t.state==='active'?' on':''}"></div><div class="flow-tip${t.state==='active'?' on':''}">▶</div>`;
+      const agg=document.createElement('div');
+      agg.className='agg-col';
+      agg.innerHTML=`<div class="agg-ring" style="box-shadow:0 0 20px rgba(157,111,255,${can?.3:.06})">⚡</div><div class="agg-label">Aggregator</div><div class="agg-eq">CRV.R = XOR(R, R₀, R₁)</div>`;
+      const fl2=document.createElement('div');
+      fl2.className='flow-col';
+      fl2.innerHTML=`<div class="flow-note">Rt, CHKt</div><div class="flow-line${tData[i+1].state==='active'?' on':''}"></div><div class="flow-tip${tData[i+1].state==='active'?' on':''}">▶</div>`;
+      s.appendChild(fl);s.appendChild(agg);s.appendChild(fl2);
     }
   });
 
-  const crv = document.getElementById('thresh-crv');
-  const verdict = document.getElementById('thresh-verdict');
-  const btn = document.getElementById('thresh-sign-btn');
-
-  if (canSign) {
-    verdict.className = 'thresh-verdict ok';
-    verdict.textContent = `SECURE — ${active}/${tTrustees.length} trustees active (k=${kThresh})`;
-    crv.innerHTML = `CRV.R = XOR(baseline_R, R₀, R₁). Neither trustee can compute CRV.R alone.`;
-    btn.className = 'btn c';
+  const vd=document.getElementById('tv'),td=document.getElementById('td'),btn=document.getElementById('ts-btn');
+  if(can){
+    vd.className='verdict ok';
+    vd.textContent=`SECURE — ${active}/${tData.length} trustees active (k=${kT})`;
+    td.innerHTML=`Neither trustee's PRF output reveals the masked key alone. <code style="font-size:.58rem;color:var(--c)">CRV.R = XOR(R_base, R₀, R₁)</code> — R_base is unknown to all trustees.`;
+    btn.className='btn c';
   } else {
-    verdict.className = 'thresh-verdict fail';
-    verdict.textContent = `SIGNING BLOCKED — ${active} of ${kThresh} required trustees active`;
-    crv.innerHTML = `<span class="blocked">Insufficient PRF contributions. Protocol aborts.</span>`;
-    btn.className = 'btn ghost';
+    vd.className='verdict fail';
+    vd.textContent=`SIGNING BLOCKED — ${active} of ${kT} required (k=${kT})`;
+    td.innerHTML=`<span class="blocked">KK_Aggregator_Sign() aborts: insufficient PRF contributions.</span>`;
+    btn.className='btn d';
   }
 }
 
-async function runThreshSign() {
-  const active = tTrustees.filter(t=>t.state==='active');
-  if (active.length < kThresh) { renderThreshold(); return; }
-
-  for (const t of tTrustees) {
-    if (t.state === 'active') {
-      t.seed = randBytes(N_BYTES);
-      t.prf_r = await PRF_R(t.seed, 0);
-      t.prf_chk = await PRF_Chk(t.seed, 0);
-    }
+async function runThresh(){
+  const active=tData.filter(t=>t.state==='active');
+  if(active.length<kT){renderThresh();return;}
+  for(const t of tData){
+    if(t.state==='active'){t.seed=randB(N_BYTES);t.pr=await prf_r(t.seed,0);t.pc=await prf_chk(t.seed,0);}
   }
-
-  const prf_rs = active.map(t => t.prf_r);
-  const crv_r = xorBytes(...prf_rs);
-  const verdict = document.getElementById('thresh-verdict');
-  verdict.className = 'thresh-verdict ok';
-  verdict.textContent = `✓ AggregatorSign() succeeded`;
-  document.getElementById('thresh-crv').innerHTML =
-    `CRV.R = <span class="val">${fmtHex(crv_r)}</span><br>` +
-    active.map((t,i) => `PRF_R(seed_${t.id}) = <span class="val">${fmtHex(t.prf_r)}</span>`).join('<br>');
-  renderThreshold();
+  const crv=xorB(...active.map(t=>t.pr));
+  document.getElementById('tv').textContent='✓ AggregatorSign() succeeded';
+  document.getElementById('tv').className='verdict ok';
+  document.getElementById('td').innerHTML=
+    `CRV.R = <span class="v">${fhex(crv)}</span><br>`+
+    active.map(t=>`PRF_R(seed_${t.id}) = <span class="v">${fhex(t.pr)}</span>`).join('<br>');
+  renderThresh();
 }
 
-function resetThreshold() {
-  tTrustees.forEach(t => { t.state='active'; t.seed=null; t.prf_r=null; t.prf_chk=null; });
-  renderThreshold();
-}
+function resetThresh(){tData.forEach(t=>{t.state='active';t.seed=null;t.pr=null;t.pc=null;});renderThresh();}
+renderThresh();
 
-renderThreshold();
+// ── Merkle
+const NS='http://www.w3.org/2000/svg';
+const LX=[130,290,530,690],LY=260,IX=[210,610],IY=160,RX=410,RY=62;
+let mState='idle',mH={};
 
-// ================================================================
-// MERKLE TREE
-// ================================================================
-const SVG_NS = 'http://www.w3.org/2000/svg';
-const MLEAVES = 4;
-const LEAF_X  = [130, 290, 530, 690];
-const LEAF_Y  = 260;
-const INT_X   = [210, 610];
-const INT_Y   = 160;
-const ROOT_X  = 410;
-const ROOT_Y  = 65;
+function svgE(tag,attrs){const e=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));return e;}
 
-let merkleState = 'idle';
-let merkleHashes = {};
-
-function svgEl(tag, attrs) {
-  const el = document.createElementNS(SVG_NS, tag);
-  Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
-  return el;
-}
-
-function initMerkleSVG() {
-  const svg = document.getElementById('msv');
-  svg.innerHTML = '';
-  const edges = [
-    {id:'e-i0-l0',x1:INT_X[0],y1:INT_Y,x2:LEAF_X[0],y2:LEAF_Y},
-    {id:'e-i0-l1',x1:INT_X[0],y1:INT_Y,x2:LEAF_X[1],y2:LEAF_Y},
-    {id:'e-i1-l2',x1:INT_X[1],y1:INT_Y,x2:LEAF_X[2],y2:LEAF_Y},
-    {id:'e-i1-l3',x1:INT_X[1],y1:INT_Y,x2:LEAF_X[3],y2:LEAF_Y},
-    {id:'e-r-i0', x1:ROOT_X,  y1:ROOT_Y,x2:INT_X[0], y2:INT_Y},
-    {id:'e-r-i1', x1:ROOT_X,  y1:ROOT_Y,x2:INT_X[1], y2:INT_Y},
+function initSVG(){
+  const svg=document.getElementById('msv');svg.innerHTML='';
+  const edges=[
+    {id:'ei0l0',x1:IX[0],y1:IY,x2:LX[0],y2:LY},{id:'ei0l1',x1:IX[0],y1:IY,x2:LX[1],y2:LY},
+    {id:'ei1l2',x1:IX[1],y1:IY,x2:LX[2],y2:LY},{id:'ei1l3',x1:IX[1],y1:IY,x2:LX[3],y2:LY},
+    {id:'eri0', x1:RX,   y1:RY,x2:IX[0],y2:IY}, {id:'eri1', x1:RX,   y1:RY,x2:IX[1],y2:IY},
   ];
-  edges.forEach(e => {
-    const line = svgEl('line',{class:'medge',id:e.id,x1:e.x1,y1:e.y1,x2:e.x2,y2:e.y2});
-    svg.appendChild(line);
+  edges.forEach(e=>svg.appendChild(svgE('line',{class:'me',id:e.id,x1:e.x1,y1:e.y1,x2:e.x2,y2:e.y2})));
+
+  LX.forEach((x,i)=>{
+    const g=svgE('g',{id:`ml${i}`,style:'cursor:pointer'});g.onclick=()=>authPath(i);
+    g.appendChild(svgE('circle',{class:'mn-circle leaf',cx:x,cy:LY,r:26,id:`ml${i}c`}));
+    const t1=svgE('text',{class:'mn-text',x,y:LY-9});t1.textContent=`pk[${i}]`;
+    const t2=svgE('text',{class:'mn-text',x,y:LY+7,id:`ml${i}t`});t2.textContent='—';
+    g.appendChild(t1);g.appendChild(t2);svg.appendChild(g);
+    const lb=svgE('text',{x,y:LY+44,'text-anchor':'middle',fill:'var(--dim)','font-family':'JetBrains Mono','font-size':'9'});lb.textContent=`leaf[${i}]`;svg.appendChild(lb);
   });
-  LEAF_X.forEach((x,i) => {
-    const g = svgEl('g',{id:`ml${i}`,style:'cursor:pointer'});
-    g.onclick = () => highlightAuthPath(i);
-    g.appendChild(svgEl('circle',{class:'mnode-circle',cx:x,cy:LEAF_Y,r:28,id:`ml${i}-c`}));
-    const t1 = svgEl('text',{class:'mnode-text',x,y:LEAF_Y-9}); t1.textContent=`pk[${i}]`;
-    const t2 = svgEl('text',{class:'mnode-text',x,y:LEAF_Y+7,id:`ml${i}-t`}); t2.textContent='—';
-    g.appendChild(t1); g.appendChild(t2);
-    svg.appendChild(g);
-    const lbl = svgEl('text',{x,y:LEAF_Y+46,'text-anchor':'middle',fill:'var(--dim)','font-family':'JetBrains Mono','font-size':'9'}); lbl.textContent=`leaf[${i}]`;
-    svg.appendChild(lbl);
+  IX.forEach((x,i)=>{
+    const g=svgE('g',{id:`mi${i}`});
+    g.appendChild(svgE('circle',{class:'mn-circle',cx:x,cy:IY,r:28,id:`mi${i}c`}));
+    const t1=svgE('text',{class:'mn-text',x,y:IY-9});t1.textContent=`h${i===0?'₀₁':'₂₃'}`;
+    const t2=svgE('text',{class:'mn-text',x,y:IY+7,id:`mi${i}t`});t2.textContent='—';
+    g.appendChild(t1);g.appendChild(t2);svg.appendChild(g);
   });
-  INT_X.forEach((x,i) => {
-    const g = svgEl('g',{id:`mi${i}`});
-    g.appendChild(svgEl('circle',{class:'mnode-circle',cx:x,cy:INT_Y,r:30,id:`mi${i}-c`}));
-    const t1 = svgEl('text',{class:'mnode-text',x,y:INT_Y-9}); t1.textContent=`h${i===0?'01':'23'}`;
-    const t2 = svgEl('text',{class:'mnode-text',x,y:INT_Y+7,id:`mi${i}-t`}); t2.textContent='—';
-    g.appendChild(t1); g.appendChild(t2);
-    svg.appendChild(g);
-  });
-  const rg = svgEl('g',{id:'mr'});
-  rg.appendChild(svgEl('circle',{class:'mnode-circle',cx:ROOT_X,cy:ROOT_Y,r:32,id:'mr-c'}));
-  const rt1 = svgEl('text',{class:'mnode-text',x:ROOT_X,y:ROOT_Y-9}); rt1.textContent='root';
-  const rt2 = svgEl('text',{class:'mnode-text',x:ROOT_X,y:ROOT_Y+7,id:'mr-t'}); rt2.textContent='—';
-  rg.appendChild(rt1); rg.appendChild(rt2);
-  svg.appendChild(rg);
+  const rg=svgE('g',{id:'mr'});
+  rg.appendChild(svgE('circle',{class:'mn-circle',cx:RX,cy:RY,r:30,id:'mrc'}));
+  const rt1=svgE('text',{class:'mn-text',x:RX,y:RY-10});rt1.textContent='root';
+  const rt2=svgE('text',{class:'mn-text',x:RX,y:RY+7,id:'mrt'});rt2.textContent='—';
+  rg.appendChild(rt1);rg.appendChild(rt2);svg.appendChild(rg);
 }
 
-async function buildMerkle() {
-  if (merkleState==='building') return;
-  merkleState='building';
-  merkleHashes={};
-  initMerkleSVG();
-  document.getElementById('merkle-status').textContent = 'Computing leaf hashes…';
-  document.getElementById('merkle-root-display').textContent = '';
+async function buildMerkle(){
+  if(mState==='building')return;
+  mState='building';mH={};initSVG();
+  document.getElementById('ms').textContent='Computing leaf public keys…';
+  document.getElementById('mr-display').textContent='';
 
-  for (let i=0;i<MLEAVES;i++) {
-    const seed = randBytes(N_BYTES);
-    const pk = await hash_lms([T_OTS_PK, i], seed);
-    merkleHashes[`l${i}`] = pk;
-    document.getElementById(`ml${i}-c`).className.baseVal='mnode-circle leaf-active';
-    document.getElementById(`ml${i}-t`).textContent = toHex(pk).slice(0,8)+'…';
-    await delay(200);
+  for(let i=0;i<4;i++){
+    const pk=await hash_lms([T_PK,i],randB(N_BYTES));
+    mH[`l${i}`]=pk;
+    document.getElementById(`ml${i}c`).className.baseVal='mn-circle leaf-on';
+    document.getElementById(`ml${i}t`).textContent=hex(pk).slice(0,8)+'…';
+    document.getElementById(`ml${i}t`).className.baseVal='mn-text on';
+    await wait(220);
   }
-
-  document.getElementById('merkle-status').textContent = 'Computing internal nodes…';
-  for (let i=0;i<2;i++) {
-    const l = merkleHashes[`l${i*2}`], r = merkleHashes[`l${i*2+1}`];
-    const node = await hash_lms([T_MT_INT, 0, i], l, r);
-    merkleHashes[`i${i}`] = node;
-    document.getElementById(`e-i${i}-l${i*2}`).classList.add('active');
-    document.getElementById(`e-i${i}-l${i*2+1}`).classList.add('active');
-    await delay(100);
-    document.getElementById(`mi${i}-c`).className.baseVal='mnode-circle internal-done';
-    document.getElementById(`mi${i}-t`).textContent = toHex(node).slice(0,8)+'…';
-    await delay(300);
+  document.getElementById('ms').textContent='Computing internal nodes…';
+  for(let i=0;i<2;i++){
+    const node=await hash_lms([T_MT,0,i],mH[`l${i*2}`],mH[`l${i*2+1}`]);
+    mH[`i${i}`]=node;
+    document.getElementById(`ei${i}l${i*2}`).classList.add('on');
+    document.getElementById(`ei${i}l${i*2+1}`).classList.add('on');
+    await wait(100);
+    document.getElementById(`mi${i}c`).className.baseVal='mn-circle int-on';
+    document.getElementById(`mi${i}t`).textContent=hex(node).slice(0,8)+'…';
+    document.getElementById(`mi${i}t`).className.baseVal='mn-text on';
+    await wait(300);
   }
-
-  const root = await hash_lms([T_MT_INT, 1, 0], merkleHashes['i0'], merkleHashes['i1']);
-  merkleHashes['root'] = root;
-  document.getElementById('e-r-i0').classList.add('active');
-  document.getElementById('e-r-i1').classList.add('active');
-  await delay(100);
-  document.getElementById('mr-c').className.baseVal='mnode-circle root-done';
-  document.getElementById('mr-t').textContent = toHex(root).slice(0,8)+'…';
-  document.getElementById('merkle-root-display').textContent = `root = ${fmtHex(root)}`;
-  document.getElementById('merkle-status').textContent = 'Done. Click a leaf to show its authentication path.';
-  merkleState='done';
+  const root=await hash_lms([T_MT,1,0],mH['i0'],mH['i1']);
+  mH['root']=root;
+  document.getElementById('eri0').classList.add('on');document.getElementById('eri1').classList.add('on');
+  await wait(100);
+  document.getElementById('mrc').className.baseVal='mn-circle root-on';
+  document.getElementById('mrt').textContent=hex(root).slice(0,8)+'…';
+  document.getElementById('mrt').className.baseVal='mn-text on';
+  document.getElementById('mr-display').innerHTML=`root = <span>${fhex(root)}</span>`;
+  document.getElementById('ms').textContent='Done. Click a leaf to show its authentication path.';
+  mState='done';
 }
 
-function highlightAuthPath(idx) {
-  if (merkleState!=='done') return;
-  ['ml0-c','ml1-c','ml2-c','ml3-c','mi0-c','mi1-c','mr-c'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el && el.className.baseVal) el.className.baseVal = el.className.baseVal.replace(' auth','');
-  });
-  document.querySelectorAll('.medge').forEach(e => e.classList.remove('auth'));
-
-  const sibLeaf = idx%2===0?idx+1:idx-1;
-  const intIdx = idx<2?0:1;
-  const sibInt = intIdx===0?1:0;
-
-  document.getElementById(`ml${sibLeaf}-c`).className.baseVal += ' auth';
-  document.getElementById(`mi${sibInt}-c`).className.baseVal += ' auth';
-  const edgeMap={0:'e-i0-l0',1:'e-i0-l1',2:'e-i1-l2',3:'e-i1-l3'};
-  document.getElementById(edgeMap[sibLeaf]).classList.add('auth');
-  document.getElementById(sibInt===0?'e-r-i0':'e-r-i1').classList.add('auth');
-  document.getElementById('merkle-status').textContent =
-    `Auth path for leaf[${idx}]: sibling=leaf[${sibLeaf}], sibling_int=${sibInt===0?'h01':'h23'} — 2 nodes total (height=2)`;
+function authPath(idx){
+  if(mState!=='done')return;
+  document.querySelectorAll('.mn-circle').forEach(e=>{e.className.baseVal=e.className.baseVal.replace(' auth','');});
+  document.querySelectorAll('.me').forEach(e=>e.classList.remove('auth'));
+  const sib=idx%2===0?idx+1:idx-1;
+  const iIdx=idx<2?0:1;const sIdx=1-iIdx;
+  document.getElementById(`ml${sib}c`).className.baseVal+=' auth';
+  document.getElementById(`mi${sIdx}c`).className.baseVal+=' auth';
+  const em={0:'ei0l0',1:'ei0l1',2:'ei1l2',3:'ei1l3'};
+  document.getElementById(em[sib]).classList.add('auth');
+  document.getElementById(sIdx===0?'eri0':'eri1').classList.add('auth');
+  document.getElementById('ms').textContent=`Auth path for leaf[${idx}]: sibling leaf[${sib}] + node h${sIdx===0?'₀₁':'₂₃'} — verifier needs 2 sibling values to reconstruct root`;
 }
 
-function resetMerkle() {
-  merkleState='idle'; merkleHashes={};
-  initMerkleSVG();
-  document.getElementById('merkle-status').textContent = 'Build the tree to see real hashes.';
-  document.getElementById('merkle-root-display').textContent = '';
+function resetMerkle(){mState='idle';mH={};initSVG();document.getElementById('ms').textContent='Build to see real hashes.';document.getElementById('mr-display').textContent='';}
+initSVG();
+
+// ── XOR Benchmark
+async function runXOR(){
+  const btn=document.getElementById('xbtn');
+  btn.disabled=true;btn.textContent='Measuring…';
+  document.getElementById('xspd').textContent='—×';
+  document.getElementById('xsub').textContent='running…';
+  await wait(20);
+  const RUNS=5000,N=10;
+  const inp=Array.from({length:N},()=>{const a=new Uint8Array(N_BYTES);crypto.getRandomValues(a);return a;});
+
+  const t1=performance.now();
+  for(let r=0;r<RUNS;r++){const o=new Uint8Array(N_BYTES);for(const a of inp)for(let i=0;i<N_BYTES;i++)o[i]^=a[i];}
+  const bu=(performance.now()-t1)/RUNS*1e3;
+
+  await wait(10);
+
+  const t2=performance.now();
+  for(let r=0;r<RUNS;r++){const o=new Uint32Array(N_BYTES/4);for(const a of inp){const v=new Uint32Array(a.buffer,a.byteOffset);for(let i=0;i<4;i++)o[i]^=v[i];}}
+  const uu=(performance.now()-t2)/RUNS*1e3;
+
+  const sp=bu/uu;const mx=Math.max(bu,uu);
+  document.getElementById('xbv').textContent=bu.toFixed(2)+' μs';
+  document.getElementById('xuv').textContent=uu.toFixed(2)+' μs';
+  document.getElementById('xbf').style.width=(bu/mx*100)+'%';
+  document.getElementById('xuf').style.width=(uu/mx*100)+'%';
+  document.getElementById('xspd').textContent=sp.toFixed(1)+'×';
+  document.getElementById('xsub').textContent=`speedup on this machine · Python result: 5.9× (CPython overhead model) · ${RUNS.toLocaleString()} iterations`;
+  btn.disabled=false;btn.textContent='Run _xor_many() benchmark';
 }
 
-initMerkleSVG();
-
-// ================================================================
-// XOR BENCHMARK
-// ================================================================
-async function runXORBench() {
-  const btn = document.getElementById('xor-btn');
-  btn.disabled=true; btn.textContent='Running…';
-  document.getElementById('xor-speedup').textContent='—×';
-  document.getElementById('xor-sub').textContent='measuring…';
-  await delay(20);
-
-  const RUNS=5000, N=10;
-  const inputs = Array.from({length:N},()=>{ const a=new Uint8Array(N_BYTES); crypto.getRandomValues(a); return a; });
-
-  const t1 = performance.now();
-  for (let r=0;r<RUNS;r++) {
-    const out = new Uint8Array(N_BYTES);
-    for (const a of inputs) for (let i=0;i<N_BYTES;i++) out[i]^=a[i];
-  }
-  const byteUs = (performance.now()-t1)/RUNS*1e3;
-
-  await delay(10);
-
-  const t2 = performance.now();
-  for (let r=0;r<RUNS;r++) {
-    const out = new Uint32Array(N_BYTES/4);
-    for (const a of inputs) {
-      const v = new Uint32Array(a.buffer,a.byteOffset);
-      for (let i=0;i<4;i++) out[i]^=v[i];
-    }
-  }
-  const u32Us = (performance.now()-t2)/RUNS*1e3;
-
-  const speedup = byteUs/u32Us;
-  const maxUs = Math.max(byteUs,u32Us);
-
-  document.getElementById('xb-val').textContent=byteUs.toFixed(2)+' μs';
-  document.getElementById('xu-val').textContent=u32Us.toFixed(2)+' μs';
-  document.getElementById('xb-fill').style.width=(byteUs/maxUs*100)+'%';
-  document.getElementById('xu-fill').style.width=(u32Us/maxUs*100)+'%';
-  document.getElementById('xor-speedup').textContent=speedup.toFixed(1)+'×';
-  document.getElementById('xor-sub').textContent=`speedup on this machine · Python result: 5.9× · ${RUNS} iterations`;
-  btn.disabled=false; btn.textContent='Run _xor_many() benchmark';
-}
-
-// ================================================================
-// HERO CANVAS — floating hex characters
-// ================================================================
-const hCanvas = document.getElementById('hero-canvas');
-const hCtx = hCanvas.getContext('2d');
-const HEX_CHARS = '0123456789ABCDEF'.split('');
-let hParticles = [];
-
-function initHeroCanvas() {
-  hCanvas.width = window.innerWidth;
-  hCanvas.height = window.innerHeight;
-  hParticles = Array.from({length:60}, () => ({
-    x: Math.random()*hCanvas.width,
-    y: Math.random()*hCanvas.height,
-    char: HEX_CHARS[Math.floor(Math.random()*16)],
-    speed: .3+Math.random()*.7,
-    size: 10+Math.random()*4,
-    alpha: .05+Math.random()*.25,
-    col: Math.random()>.7 ? `rgba(0,207,255,` : `rgba(0,232,122,`
+// ── Hero canvas
+const hc=document.getElementById('hc');
+const hctx=hc.getContext('2d');
+const HC='0123456789ABCDEF'.split('');
+let hp=[];
+function initHC(){
+  hc.width=window.innerWidth;hc.height=window.innerHeight;
+  hp=Array.from({length:70},()=>({
+    x:Math.random()*hc.width,y:Math.random()*hc.height,
+    ch:HC[0|(Math.random()*16)],sp:.25+Math.random()*.6,
+    sz:11+Math.random()*4,al:.04+Math.random()*.18,
+    col:Math.random()>.65?'rgba(0,200,240,':'rgba(0,224,122,'
   }));
 }
-
-function drawHero() {
-  hCtx.clearRect(0,0,hCanvas.width,hCanvas.height);
-  hParticles.forEach(p => {
-    hCtx.font = `${p.size}px JetBrains Mono`;
-    hCtx.fillStyle = p.col+p.alpha+')';
-    hCtx.fillText(p.char, p.x, p.y);
-    p.y -= p.speed;
-    if (p.y < -20) { p.y = hCanvas.height+20; p.x=Math.random()*hCanvas.width; p.char=HEX_CHARS[Math.floor(Math.random()*16)]; }
+function drawHC(){
+  hctx.clearRect(0,0,hc.width,hc.height);
+  hp.forEach(p=>{
+    hctx.font=`${p.sz}px JetBrains Mono`;
+    hctx.fillStyle=p.col+p.al+')';
+    hctx.fillText(p.ch,p.x,p.y);
+    p.y-=p.sp;
+    if(p.y<-16){p.y=hc.height+16;p.x=Math.random()*hc.width;p.ch=HC[0|(Math.random()*16)];}
   });
-  requestAnimationFrame(drawHero);
+  requestAnimationFrame(drawHC);
 }
-window.addEventListener('resize', initHeroCanvas);
-initHeroCanvas();
-drawHero();
+window.addEventListener('resize',initHC);
+initHC();drawHC();
 
-// ================================================================
-// BENCHMARK BARS — animate on scroll
-// ================================================================
-const bObs = new IntersectionObserver(entries => {
-  entries.forEach(e => {
-    if (e.isIntersecting) {
-      e.target.querySelectorAll('.bfill').forEach(b => {
-        setTimeout(() => { b.style.width = b.dataset.w+'%'; }, 120);
-      });
+// ── Benchmark bars
+const bObs=new IntersectionObserver(es=>{
+  es.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.querySelectorAll('.bf').forEach(b=>setTimeout(()=>{b.style.width=b.dataset.w+'%';},120));
       bObs.unobserve(e.target);
     }
   });
 },{threshold:.15});
-document.querySelectorAll('.card').forEach(c => { if (c.querySelector('.bfill')) bObs.observe(c); });
+document.querySelectorAll('.bc').forEach(c=>bObs.observe(c));
 
-// ================================================================
-// SCROLL REVEAL
-// ================================================================
-const rObs = new IntersectionObserver(entries => {
-  entries.forEach(e => { if(e.isIntersecting){e.target.classList.add('in');rObs.unobserve(e.target);} });
+// ── Scroll reveal
+const rObs=new IntersectionObserver(es=>{
+  es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');rObs.unobserve(e.target);}});
 },{threshold:.07});
-document.querySelectorAll('.reveal').forEach(el => rObs.observe(el));
+document.querySelectorAll('.rv').forEach(el=>rObs.observe(el));
 </script>
 </body>
 </html>
